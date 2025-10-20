@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import shlex
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional
+from datetime import datetime
+from typing import Any, Dict, Literal, Optional
 
 from aiogram import Bot, F, Router
 from aiogram.dispatcher.event.bases import SkipHandler
@@ -11,7 +13,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from ..config import Settings
 from ..database import Database
-from ..services.formatters import escape_html
+from ..services.formatters import build_detail_keyboard, escape_html, format_summary
 
 router = Router(name="admin")
 
@@ -40,6 +42,80 @@ class PendingBroadcast:
 
 pending_reputation: Dict[int, PendingReputation] = {}
 pending_broadcast: Dict[int, PendingBroadcast] = {}
+stats_target_cache: Dict[str, str] = {}
+
+
+def _format_date(value: Optional[datetime]) -> Optional[str]:
+    if not value:
+        return None
+    return value.strftime("%d.%m.%Y")
+
+
+def format_enhanced_statistics(stats: Dict[str, Any]) -> str:
+    lines = ["📊 <b>Статистика</b>"]
+    lines.append(f"Активных групп: <b>{stats['active_groups']}</b>")
+    lines.append(f"Всего отзывов: <b>{stats['total_entries']}</b>")
+    lines.append(
+        f"Положительных: <b>{stats['positive_total']}</b> · Отрицательных: <b>{stats['negative_total']}</b>"
+    )
+    lines.append(
+        f"Баланс: <b>{stats['balance_total']:+d}</b> · Доля позитивных: <b>{stats['positive_share']}%</b>"
+    )
+    lines.append(
+        "Пользователей: "
+        f"<b>{stats['total_users']}</b> (≈ {stats['avg_requests_per_user']:.1f} запросов на человека)"
+    )
+    lines.append(f"Всего запросов: <b>{stats['total_requests']}</b>")
+    first_formatted = _format_date(stats.get("first_entry_at"))
+    last_formatted = _format_date(stats.get("last_entry_at"))
+    if first_formatted and last_formatted:
+        lines.append(
+            f"Период наблюдений: <b>{first_formatted}</b> – <b>{last_formatted}</b>"
+            f" ({stats['active_days']} дн.)"
+        )
+    lines.append(f"Средний поток в день: <b>{stats['daily_average']:.1f}</b>")
+    lines.append(f"Добавлено за 30 дней: <b>{stats['recent_30_days']}</b>")
+    if stats['top_targets']:
+        lines.append("")
+        lines.append("🏅 <b>ТОП участников по отзывам</b>")
+        for index, item in enumerate(stats['top_targets'], start=1):
+            target = escape_html(item['target'])
+            lines.append(
+                f"{index}. <code>{target}</code> — {item['total']} шт."
+                f" (баланс {item['balance']:+d}, 🟢 {item['positive_share']}%)"
+            )
+        lines.append("")
+        lines.append("Выберите участника кнопкой ниже, чтобы открыть подробный отчёт.")
+    else:
+        lines.append("")
+        lines.append("Пока нет участников с отзывами.")
+    return "\n".join(lines)
+
+
+def build_stats_keyboard(top_targets: list[dict[str, Any]]) -> InlineKeyboardMarkup:
+    inline_keyboard: list[list[InlineKeyboardButton]] = []
+    if len(stats_target_cache) > 1000:
+        stats_target_cache.clear()
+    for index, item in enumerate(top_targets, start=1):
+        target = item["target"]
+        token = hashlib.sha1(target.lower().encode("utf-8")).hexdigest()[:10]
+        stats_target_cache[token] = target
+        label_target = target if len(target) <= 24 else f"{target[:23]}…"
+        inline_keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{index}. {label_target} ({item['total']})",
+                    callback_data=f"admin:stats:target:{token}",
+                )
+            ]
+        )
+    inline_keyboard.append(
+        [
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="admin:stats:refresh"),
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home"),
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 def is_admin(user_id: int, settings: Settings) -> bool:
@@ -180,15 +256,15 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         return
 
     if action == "stats":
-        stats = await db.fetch_statistics()
-        text = (
-            "📊 <b>Статистика</b>\n"
-            f"Активных групп: <b>{stats['active_groups']}</b>\n"
-            f"Сообщений в базе: <b>{stats['total_entries']}</b>\n"
-            f"Пользователей: <b>{stats['total_users']}</b>\n"
-            f"Запросов: <b>{stats['total_requests']}</b>"
+        stats = await db.fetch_enhanced_statistics()
+        text = format_enhanced_statistics(stats)
+        keyboard = build_stats_keyboard(stats["top_targets"])
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
         )
-        await callback.message.answer(text)
         await callback.answer()
         return
 
@@ -249,6 +325,59 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         return
 
     await callback.answer()
+
+
+@router.callback_query(F.data == "admin:stats:refresh")
+async def refresh_stats(callback: CallbackQuery, settings: Settings, db: Database) -> None:
+    user = callback.from_user
+    if not user or not is_admin(user.id, settings):
+        await callback.answer("Недостаточно прав", show_alert=True)
+        return
+    stats = await db.fetch_enhanced_statistics()
+    text = format_enhanced_statistics(stats)
+    keyboard = build_stats_keyboard(stats["top_targets"])
+    try:
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+    except Exception:
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+    await callback.answer("Обновлено")
+
+
+@router.callback_query(F.data.startswith("admin:stats:target:"))
+async def show_stats_target(callback: CallbackQuery, settings: Settings, db: Database) -> None:
+    user = callback.from_user
+    if not user or not is_admin(user.id, settings):
+        await callback.answer("Недостаточно прав", show_alert=True)
+        return
+    parts = (callback.data or "").split(":")
+    if len(parts) != 4:
+        await callback.answer("Некорректный запрос", show_alert=True)
+        return
+    token = parts[3]
+    target = stats_target_cache.get(token)
+    if not target:
+        await callback.answer("Данные устарели. Нажмите «Обновить».", show_alert=True)
+        return
+    summary = await db.fetch_summary(target)
+    text = format_summary(summary)
+    keyboard = build_detail_keyboard(summary.target, summary.chat_id)
+    await callback.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=keyboard,
+        disable_web_page_preview=True,
+    )
+    await callback.answer("Готово")
 
 
 @router.callback_query(F.data.startswith("admin:user:"))
