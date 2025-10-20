@@ -10,6 +10,13 @@ import aiosqlite
 from .services.models import DetailedMessage, ReputationEntry, ReputationSummary
 
 
+def _normalized_target_expr(column: str = "target") -> str:
+    return (
+        "LOWER(CASE WHEN substr({column}, 1, 1) = '@' "
+        "THEN substr({column}, 2) ELSE {column} END)"
+    ).format(column=column)
+
+
 class Database:
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
@@ -278,9 +285,10 @@ class Database:
         limit: int = 30,
         offset: int = 0,
     ) -> ReputationSummary:
-        target_key = target.lower()
+        target_key = target.lower().lstrip("@")
         params: List[Any] = [target_key]
-        where_clause = "target = ?"
+        normalized_target = _normalized_target_expr("target")
+        where_clause = f"{normalized_target} = ?"
         if chat_id is not None:
             where_clause += " AND chat_id = ?"
             params.append(chat_id)
@@ -301,11 +309,12 @@ class Database:
             else:
                 positive, negative, positive_with_media, negative_with_media = [row[idx] or 0 for idx in range(4)]
 
+        adj_normalized = _normalized_target_expr("target")
         adjustment_sql = """
             SELECT COALESCE(SUM(positive_delta), 0), COALESCE(SUM(negative_delta), 0)
             FROM manual_adjustments
-            WHERE target = ? {chat_filter}
-        """.format(chat_filter="AND chat_id = ?" if chat_id is not None else "")
+            WHERE {normalized} = ? {chat_filter}
+        """.format(normalized=adj_normalized, chat_filter="AND chat_id = ?" if chat_id is not None else "")
         adj_params = [target_key]
         if chat_id is not None:
             adj_params.append(chat_id)
