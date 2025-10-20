@@ -90,6 +90,11 @@ class Database:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_reputation_entries_target_chat
+                ON reputation_entries(target, chat_id);
+            CREATE INDEX IF NOT EXISTS idx_reputation_entries_created_at
+                ON reputation_entries(created_at);
             """
         )
         await self._conn.commit()
@@ -359,6 +364,107 @@ class Database:
             "total_users": total_users,
             "total_requests": total_requests,
         }
+
+    async def fetch_enhanced_statistics(self, top_limit: int = 5) -> Dict[str, Any]:
+        base_stats = await self.fetch_statistics()
+
+        async with self.conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END), 0) AS positive_total,
+                COALESCE(SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END), 0) AS negative_total,
+                MIN(created_at) AS first_entry,
+                MAX(created_at) AS last_entry
+            FROM reputation_entries
+            """
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                positive_total = row["positive_total"] or 0
+                negative_total = row["negative_total"] or 0
+                first_raw = row["first_entry"]
+                last_raw = row["last_entry"]
+            else:
+                positive_total = negative_total = 0
+                first_raw = last_raw = None
+
+        first_entry = datetime.fromisoformat(first_raw) if first_raw else None
+        last_entry = datetime.fromisoformat(last_raw) if last_raw else None
+
+        total_entries = base_stats["total_entries"]
+        active_days = 0
+        if first_entry and last_entry:
+            active_days = max((last_entry.date() - first_entry.date()).days + 1, 1)
+        daily_average = (total_entries / active_days) if active_days else 0.0
+        balance_total = positive_total - negative_total
+        positive_share = round((positive_total / total_entries) * 100) if total_entries else 0
+
+        async with self.conn.execute(
+            """
+            SELECT COUNT(*) AS recent_count
+            FROM reputation_entries
+            WHERE created_at >= datetime('now', '-30 days')
+            """
+        ) as cursor:
+            row = await cursor.fetchone()
+            recent_30_days = row["recent_count"] if row else 0
+
+        top_limit = max(1, top_limit)
+        top_sql = """
+            SELECT
+                target,
+                SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) AS positive,
+                SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) AS negative,
+                COUNT(*) AS total
+            FROM reputation_entries
+            GROUP BY target
+            HAVING total > 0
+            ORDER BY total DESC
+            LIMIT ?
+        """
+        top_targets: List[Dict[str, Any]] = []
+        async with self.conn.execute(top_sql, (top_limit,)) as cursor:
+            async for row in cursor:
+                total = row["total"] or 0
+                if total <= 0:
+                    continue
+                positive = row["positive"] or 0
+                negative = row["negative"] or 0
+                balance = positive - negative
+                share = round((positive / total) * 100) if total else 0
+                top_targets.append(
+                    {
+                        "target": row["target"],
+                        "total": total,
+                        "positive": positive,
+                        "negative": negative,
+                        "balance": balance,
+                        "positive_share": share,
+                    }
+                )
+
+        total_users = base_stats["total_users"]
+        total_requests = base_stats["total_requests"]
+        avg_requests_per_user = (
+            (total_requests / total_users) if total_users else 0.0
+        )
+
+        base_stats.update(
+            {
+                "positive_total": positive_total,
+                "negative_total": negative_total,
+                "balance_total": balance_total,
+                "positive_share": positive_share,
+                "first_entry_at": first_entry,
+                "last_entry_at": last_entry,
+                "active_days": active_days,
+                "daily_average": daily_average,
+                "recent_30_days": recent_30_days,
+                "avg_requests_per_user": avg_requests_per_user,
+                "top_targets": top_targets,
+            }
+        )
+        return base_stats
 
     async def top_users(self, limit: int = 10) -> List[Dict[str, Any]]:
         sql = (
