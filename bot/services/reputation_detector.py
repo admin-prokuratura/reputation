@@ -22,6 +22,11 @@ RE_PATTERNS = [
     re.compile(r"(?P<sign>[+-])\s*(?:репу|репутацию)\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
 ]
 
+SIGN_ONLY_PATTERN = re.compile(
+    r"(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b",
+    re.IGNORECASE,
+)
+
 MENTION_PATTERN = re.compile(r"@([\w\d_]{3,64})")
 
 
@@ -66,6 +71,19 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
 def build_entries_from_message(message: Message) -> List[ReputationEntry]:
     text = message.text or message.caption or ""
     parsed = extract_reputation(text)
+    if not parsed and message.reply_to_message and message.reply_to_message.from_user:
+        reply_user = message.reply_to_message.from_user
+        if not getattr(reply_user, "is_bot", False):
+            match = SIGN_ONLY_PATTERN.search(text)
+            if match:
+                target_username = reply_user.username or str(reply_user.id)
+                sentiment = "positive" if match.group("sign") == "+" else "negative"
+                parsed.append(
+                    ParsedReputation(
+                        target=normalize_target(target_username),
+                        sentiment=sentiment,
+                    )
+                )
     if not parsed:
         return []
 
