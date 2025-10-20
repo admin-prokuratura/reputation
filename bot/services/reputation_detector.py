@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List
 
@@ -32,6 +33,10 @@ SIGN_ONLY_PATTERN = re.compile(
 )
 
 MENTION_PATTERN = re.compile(r"@([\w\d_]{3,64})")
+TOKEN_PATTERN = re.compile(
+    r"(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b|(?P<mention>@[\w\d_]{3,64})",
+    re.IGNORECASE,
+)
 
 
 def normalize_target(raw: str) -> str:
@@ -42,14 +47,22 @@ def normalize_target(raw: str) -> str:
 
 
 def extract_reputation(text: str) -> List[ParsedReputation]:
-    matches: List[ParsedReputation] = []
     if not text:
         logger.debug("No text present in message for reputation extraction")
-        return matches
+        return []
     lowered = text.lower()
     if not any(keyword in lowered for keyword in KEYWORDS):
         logger.debug("No reputation keywords detected in text: %s", text)
-        return matches
+        return []
+
+    sentiments: OrderedDict[str, str] = OrderedDict()
+
+    def register(target: str, sentiment: str) -> None:
+        existing = sentiments.get(target)
+        if existing == sentiment:
+            return
+        sentiments[target] = sentiment
+
     for pattern in RE_PATTERNS:
         for match in pattern.finditer(text):
             sign = match.group("sign")
@@ -57,25 +70,32 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
             if not raw_target:
                 continue
             sentiment = "positive" if sign == "+" else "negative"
-            matches.append(ParsedReputation(target=normalize_target(raw_target), sentiment=sentiment))
+            register(normalize_target(raw_target), sentiment)
+
+    pending_mentions: List[str] = []
+    current_sign: str | None = None
+
+    for token in TOKEN_PATTERN.finditer(text):
+        if token.group("sign"):
+            sign = token.group("sign")
+            sentiment = "positive" if sign == "+" else "negative"
+            if pending_mentions:
+                for pending in pending_mentions:
+                    register(pending, sentiment)
+                pending_mentions.clear()
+            current_sign = sentiment
+        else:
+            mention = normalize_target(token.group("mention"))
+            if current_sign is not None:
+                register(mention, current_sign)
+            elif mention not in pending_mentions:
+                pending_mentions.append(mention)
+
+    matches = [ParsedReputation(target=target, sentiment=sentiment) for target, sentiment in sentiments.items()]
 
     if matches:
         logger.debug("Reputation matches extracted: %s", matches)
-        has_negative = any(item.sentiment == "negative" for item in matches)
-        processed_targets = {item.target for item in matches}
-        mentions_in_text: List[str] = []
-        for mention_match in MENTION_PATTERN.finditer(text):
-            normalized = normalize_target(mention_match.group(0))
-            if normalized not in mentions_in_text:
-                mentions_in_text.append(normalized)
-        if has_negative and mentions_in_text:
-            for mention in mentions_in_text:
-                if mention not in processed_targets:
-                    matches.append(ParsedReputation(target=mention, sentiment="negative"))
-                    processed_targets.add(mention)
-        logger.debug("Final matches after mention balancing: %s", matches)
     return matches
-
 
 def build_entries_from_message(message: Message) -> List[ReputationEntry]:
     text = message.text or message.caption or ""

@@ -13,13 +13,11 @@ class ExtractReputationTests(unittest.TestCase):
         sentiments = {item.target: item.sentiment for item in result}
         self.assertEqual(sentiments, {"userone": "negative", "usertwo": "negative"})
 
-    def test_does_not_add_extra_when_positive(self):
+    def test_positive_rep_applies_to_each_mentioned_user(self):
         text = "+rep @UserOne @UserTwo"
         result = extract_reputation(text)
-        sentiments = [item.sentiment for item in result]
-        targets = [item.target for item in result]
-        self.assertEqual(sentiments, ["positive"])
-        self.assertEqual(targets, ["userone"])
+        sentiments = {item.target: item.sentiment for item in result}
+        self.assertEqual(sentiments, {"userone": "positive", "usertwo": "positive"})
 
     def test_negative_rep_when_sign_after_mentions(self):
         text = "@UserOne @UserTwo -rep"
@@ -28,10 +26,10 @@ class ExtractReputationTests(unittest.TestCase):
         self.assertEqual(sentiments, {"userone": "negative", "usertwo": "negative"})
 
     def test_positive_and_negative_mentions_are_separated(self):
-        text = "+rep @UserOne @UserTwo -rep"
+        text = "+rep @UserOne @UserTwo -rep @UserThree"
         result = extract_reputation(text)
         sentiments = {item.target: item.sentiment for item in result}
-        self.assertEqual(sentiments, {"userone": "positive", "usertwo": "negative"})
+        self.assertEqual(sentiments, {"userone": "positive", "usertwo": "positive", "userthree": "negative"})
 
 
 class BuildEntriesFromMessageTests(unittest.TestCase):
