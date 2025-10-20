@@ -22,6 +22,8 @@ RE_PATTERNS = [
     re.compile(r"(?P<sign>[+-])\s*(?:репу|репутацию)\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
 ]
 
+MENTION_PATTERN = re.compile(r"@([\w\d_]{3,64})")
+
 
 def normalize_target(raw: str) -> str:
     target = raw.strip()
@@ -45,6 +47,19 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
                 continue
             sentiment = "positive" if sign == "+" else "negative"
             matches.append(ParsedReputation(target=normalize_target(raw_target), sentiment=sentiment))
+
+    if matches:
+        negative_mentions = {item.target for item in matches if item.sentiment == "negative"}
+        mentions_in_text: List[str] = []
+        for mention_match in MENTION_PATTERN.finditer(text):
+            normalized = normalize_target(mention_match.group(0))
+            if normalized not in mentions_in_text:
+                mentions_in_text.append(normalized)
+        if len(mentions_in_text) >= 2 and negative_mentions:
+            for mention in mentions_in_text:
+                if mention not in negative_mentions:
+                    matches.append(ParsedReputation(target=mention, sentiment="negative"))
+                    negative_mentions.add(mention)
     return matches
 
 
