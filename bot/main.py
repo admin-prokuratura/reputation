@@ -4,7 +4,6 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from .config import Settings
@@ -15,7 +14,7 @@ from .handlers import admin, basic, callbacks, reputation
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     settings = Settings.load()
-    bot = Bot(settings.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(settings.token, parse_mode=ParseMode.HTML)
     db = Database(settings.database_path)
     await db.connect()
     if settings.paused:
