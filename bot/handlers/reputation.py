@@ -32,8 +32,14 @@ async def capture_reputation(message: Message, db: Database) -> None:
 
 
 @router.message(Command("rep"))
-async def rep_command(message: Message, db: Database) -> None:
+async def rep_command(message: Message, db: Database, settings: Settings) -> None:
     if not message.from_user:
+        return
+
+    if message.chat.type == "private" and message.from_user.id not in settings.admin_ids:
+        await message.answer(
+            "ℹ️ Поиск репутации доступен только в чатах. Добавьте бота в группу и используйте команду там."
+        )
         return
     await db.ensure_user(
         message.from_user.id,

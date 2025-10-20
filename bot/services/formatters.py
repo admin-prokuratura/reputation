@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -15,26 +16,51 @@ def format_summary(summary: ReputationSummary) -> str:
         header = f"<b>Репутация «{escape_html(target)}»</b>"
     lines = [header, ""]
     lines.append(
-        f"<b>Положительная:</b> {summary.positive} шт. ({summary.positive_with_media} с медиа)"
+        f"🟢 <b>Положительная:</b> {summary.positive} шт. ({summary.positive_with_media} с медиа)"
     )
     lines.append(
-        f"<b>Отрицательная:</b> {summary.negative} шт. ({summary.negative_with_media} с медиа)"
+        f"🔴 <b>Отрицательная:</b> {summary.negative} шт. ({summary.negative_with_media} с медиа)"
     )
+    balance = summary.positive - summary.negative
+    lines.append(f"⚖️ <b>Баланс:</b> {balance:+d}")
     lines.append("")
     if summary.total == 0:
         lines.append("ℹ️ Пока нет отзывов. Спросите коллег — возможно, у них появится информация.")
     elif summary.negative > summary.positive:
         lines.append("⚠️ <i>Будьте аккуратнее при работе!</i>")
     else:
-        lines.append("✅ <i>Репутация выглядит достойно.</i>")
+        if balance > 0:
+            lines.append(
+                "✅ <i>Репутация выглядит достойно: положительных отзывов больше, чем отрицательных.</i>"
+            )
+        else:
+            lines.append(
+                "✅ <i>Репутация выглядит достойно: отрицательных отзывов не больше положительных.</i>"
+            )
     return "\n".join(lines)
 
 
-def format_detail_messages(details: list[DetailedMessage], limit: int = 30) -> str:
-    if not details:
+def format_detail_messages(
+    details: list[DetailedMessage],
+    total: int,
+    page: int,
+    page_size: int,
+) -> str:
+    if total == 0:
         return "Пока нет сообщений с репутацией."
-    rows = ["<b>Детальный анализ</b>"]
-    for item in details[:limit]:
+
+    total_pages = max(1, math.ceil(total / page_size))
+    rows = [f"<b>Детальный анализ</b> — страница {page + 1} из {total_pages}"]
+    if details:
+        start_index = page * page_size + 1
+        end_index = start_index + len(details) - 1
+        rows.append(f"Показаны записи {start_index}–{end_index} из {total}.")
+        rows.append("")
+    else:
+        rows.append("На этой странице ещё нет записей.")
+        return "\n".join(rows)
+
+    for index, item in enumerate(details, start=start_index):
         sentiment_icon = "🟢" if item.sentiment == "positive" else "🔴"
         media_hint = "📷" if item.has_photo else ("📎" if item.has_media else "")
         raw_author = item.author_username or "аноним"
@@ -42,18 +68,60 @@ def format_detail_messages(details: list[DetailedMessage], limit: int = 30) -> s
             author = f"@{raw_author}"
         else:
             author = raw_author
+        timestamp = item.created_at.strftime("%d.%m.%Y %H:%M")
         rows.append(
-            f"{sentiment_icon}{media_hint} <a href='{item.link}'>Сообщение</a> — {escape_html(author)}"
+            f"{index}. {sentiment_icon}{media_hint} <a href='{item.link}'>Сообщение</a> — {escape_html(author)} · {timestamp}"
         )
     return "\n".join(rows)
 
 
-def build_detail_keyboard(target: str, chat_id: Optional[int]) -> InlineKeyboardMarkup:
-    payload = f"detail:{target}:{chat_id if chat_id is not None else 'all'}"
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="🔍 Детальный анализ", callback_data=payload)]]
-    )
-    return keyboard
+def build_detail_keyboard(
+    target: str,
+    chat_id: Optional[int],
+    page: int = 0,
+    total: Optional[int] = None,
+    page_size: int = 10,
+    include_entry_button: bool = True,
+) -> InlineKeyboardMarkup:
+    payload_base = f"detail:{target}:{chat_id if chat_id is not None else 'all'}"
+    buttons: list[list[InlineKeyboardButton]] = []
+    if include_entry_button:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="🔍 Детальный анализ",
+                    callback_data=f"{payload_base}:{page}",
+                )
+            ]
+        )
+
+    if total is not None:
+        total_pages = max(1, math.ceil(total / page_size))
+        nav_row: list[InlineKeyboardButton] = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="⬅️ Назад",
+                    callback_data=f"{payload_base}:{page - 1}",
+                )
+            )
+        nav_row.append(InlineKeyboardButton(text=f"Стр. {page + 1}/{total_pages}", callback_data="noop"))
+        if page + 1 < total_pages:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="Вперёд ➡️",
+                    callback_data=f"{payload_base}:{page + 1}",
+                )
+            )
+        if nav_row:
+            buttons.append(nav_row)
+
+    if not buttons:
+        buttons.append([
+            InlineKeyboardButton(text="🔁 Обновить", callback_data=f"{payload_base}:{page}")
+        ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def build_rep_command_keyboard(target: str, chat_query: Optional[str]) -> InlineKeyboardMarkup:

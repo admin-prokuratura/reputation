@@ -29,7 +29,11 @@ async def on_start(message: Message, settings: Settings) -> None:
 
 
 @router.message(Command("id"))
-async def chat_id(message: Message) -> None:
+async def chat_id(message: Message, settings: Settings) -> None:
+    if message.chat.type == "private" and (
+        not message.from_user or message.from_user.id not in settings.admin_ids
+    ):
+        return
     await message.reply(f"ID этого чата: <code>{message.chat.id}</code>")
 
 
