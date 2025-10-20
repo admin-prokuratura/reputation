@@ -61,17 +61,18 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
 
     if matches:
         logger.debug("Reputation matches extracted: %s", matches)
-        negative_mentions = {item.target for item in matches if item.sentiment == "negative"}
+        has_negative = any(item.sentiment == "negative" for item in matches)
+        processed_targets = {item.target for item in matches}
         mentions_in_text: List[str] = []
         for mention_match in MENTION_PATTERN.finditer(text):
             normalized = normalize_target(mention_match.group(0))
             if normalized not in mentions_in_text:
                 mentions_in_text.append(normalized)
-        if len(mentions_in_text) >= 2 and negative_mentions:
+        if has_negative and mentions_in_text:
             for mention in mentions_in_text:
-                if mention not in negative_mentions:
+                if mention not in processed_targets:
                     matches.append(ParsedReputation(target=mention, sentiment="negative"))
-                    negative_mentions.add(mention)
+                    processed_targets.add(mention)
         logger.debug("Final matches after mention balancing: %s", matches)
     return matches
 
