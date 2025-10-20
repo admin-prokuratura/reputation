@@ -205,6 +205,27 @@ class Database:
         )
         await self.conn.commit()
 
+    async def recent_manual_adjustments(self, limit: int = 10) -> List[Dict[str, Any]]:
+        sql = (
+            "SELECT target, chat_id, positive_delta, negative_delta, note, created_at, created_by "
+            "FROM manual_adjustments ORDER BY created_at DESC LIMIT ?"
+        )
+        result: List[Dict[str, Any]] = []
+        async with self.conn.execute(sql, (limit,)) as cursor:
+            async for row in cursor:
+                result.append(
+                    {
+                        "target": row["target"],
+                        "chat_id": row["chat_id"],
+                        "positive_delta": row["positive_delta"],
+                        "negative_delta": row["negative_delta"],
+                        "note": row["note"],
+                        "created_at": row["created_at"],
+                        "created_by": row["created_by"],
+                    }
+                )
+        return result
+
     async def find_group_by_title(self, title: str) -> Optional[Tuple[int, str]]:
         async with self.conn.execute(
             "SELECT chat_id, title FROM groups WHERE lower(title) = ? OR lower(username) = ?",
