@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Literal, Optional
 
 from aiogram import Bot, F, Router
-from aiogram.exceptions import SkipHandler
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
