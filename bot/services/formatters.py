@@ -14,29 +14,56 @@ def format_summary(summary: ReputationSummary) -> str:
         header = f"<b>Репутация «{escape_html(target)}»</b>\nВ чате: <b>{escape_html(summary.chat_title)}</b>"
     else:
         header = f"<b>Репутация «{escape_html(target)}»</b>"
-    lines = [header, ""]
-    lines.append(
-        f"🟢 <b>Положительная:</b> {summary.positive} шт. ({summary.positive_with_media} с медиа)"
-    )
-    lines.append(
-        f"🔴 <b>Отрицательная:</b> {summary.negative} шт. ({summary.negative_with_media} с медиа)"
-    )
-    balance = summary.positive - summary.negative
-    lines.append(f"⚖️ <b>Баланс:</b> {balance:+d}")
-    lines.append("")
+
     if summary.total == 0:
-        lines.append("ℹ️ Пока нет отзывов. Спросите коллег — возможно, у них появится информация.")
-    elif summary.negative > summary.positive:
+        return "\n".join(
+            [
+                header,
+                "",
+                "ℹ️ Пока нет отзывов. Спросите коллег — возможно, у них появится информация.",
+            ]
+        )
+
+    total = summary.total
+    positive_percent = _to_percent(summary.positive, total)
+    negative_percent = _to_percent(summary.negative, total)
+    balance = summary.positive - summary.negative
+
+    lines = [header, "", "📊 <b>Общая картина</b>"]
+    lines.append(f"• Всего отзывов: <b>{total}</b>")
+
+    pos_line = f"• 🟢 Положительных: <b>{summary.positive}</b> ({positive_percent}%)"
+    if summary.positive_with_media:
+        pos_line += f" · {summary.positive_with_media} с медиа"
+    lines.append(pos_line)
+
+    neg_line = f"• 🔴 Отрицательных: <b>{summary.negative}</b> ({negative_percent}%)"
+    if summary.negative_with_media:
+        neg_line += f" · {summary.negative_with_media} с медиа"
+    lines.append(neg_line)
+
+    lines.append(f"• ⚖️ Баланс: <b>{balance:+d}</b>")
+
+    lines.extend(
+        [
+            "",
+            f"<code>🟢 {_build_progress_bar(summary.positive, total)} {positive_percent:>3}%</code>",
+            f"<code>🔴 {_build_progress_bar(summary.negative, total)} {negative_percent:>3}%</code>",
+            "",
+        ]
+    )
+
+    if summary.negative > summary.positive:
         lines.append("⚠️ <i>Будьте аккуратнее при работе!</i>")
+    elif balance > 0:
+        lines.append(
+            "✅ <i>Репутация выглядит достойно: положительных отзывов больше, чем отрицательных.</i>"
+        )
     else:
-        if balance > 0:
-            lines.append(
-                "✅ <i>Репутация выглядит достойно: положительных отзывов больше, чем отрицательных.</i>"
-            )
-        else:
-            lines.append(
-                "✅ <i>Репутация выглядит достойно: отрицательных отзывов не больше положительных.</i>"
-            )
+        lines.append(
+            "✅ <i>Репутация выглядит достойно: отрицательных отзывов не больше положительных.</i>"
+        )
+
     return "\n".join(lines)
 
 
@@ -153,3 +180,17 @@ def escape_html(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def _to_percent(value: int, total: int) -> int:
+    if total <= 0:
+        return 0
+    return round((value / total) * 100)
+
+
+def _build_progress_bar(value: int, total: int, segments: int = 12) -> str:
+    if total <= 0:
+        return "░" * segments
+    filled = 0 if value <= 0 else max(1, round((value / total) * segments))
+    filled = min(filled, segments)
+    return "█" * filled + "░" * (segments - filled)
