@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shlex
 from typing import Optional, Tuple
 
@@ -17,10 +18,16 @@ def parse_rep_arguments(text: str) -> Tuple[Optional[str], Optional[str]]:
     return target, chat_title
 
 
+_INLINE_PREFIX = re.compile(r"^(?:[+\-/]?)rep\b", re.IGNORECASE)
+
+
 def parse_inline_query(query: str) -> Tuple[Optional[str], Optional[str]]:
     query = query.strip()
     if not query:
         return None, None
-    if query.lower().startswith("rep"):
-        query = query[3:].strip()
+
+    match = _INLINE_PREFIX.match(query)
+    if match:
+        query = query[match.end() :].strip()
+
     return parse_rep_arguments(query)
