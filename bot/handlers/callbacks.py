@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from aiogram import Router
-from aiogram.filters import Text
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from ..database import Database
@@ -12,7 +11,7 @@ from ..services.formatters import format_detail_messages
 router = Router(name="callbacks")
 
 
-@router.callback_query(Text(startswith="detail:"))
+@router.callback_query(F.data.startswith("detail:"))
 async def detail_view(callback: CallbackQuery, db: Database) -> None:
     payload = callback.data or ""
     try:

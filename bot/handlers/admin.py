@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import shlex
 
-from aiogram import Bot, Router
-from aiogram.filters import Command, Text
+from aiogram import Bot, F, Router
+from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from ..config import Settings
@@ -40,7 +40,7 @@ async def admin_panel(message: Message, settings: Settings, db: Database) -> Non
     await message.answer("Панель администратора:", reply_markup=keyboard)
 
 
-@router.callback_query(Text(startswith="admin:"))
+@router.callback_query(F.data.startswith("admin:"))
 async def admin_actions(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
