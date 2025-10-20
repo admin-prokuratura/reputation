@@ -31,5 +31,19 @@ async def detail_view(callback: CallbackQuery, db: Database) -> None:
 
     summary = await db.fetch_summary(target, chat_id, limit=50)
     detail_text = format_detail_messages(summary.details, limit=50)
-    await callback.message.answer(detail_text, disable_web_page_preview=True)
-    await callback.answer("Готово")
+
+    if callback.message is not None:
+        await callback.message.answer(detail_text, disable_web_page_preview=True)
+        await callback.answer("Готово")
+        return
+
+    if callback.from_user is not None:
+        await callback.bot.send_message(
+            callback.from_user.id,
+            detail_text,
+            disable_web_page_preview=True,
+        )
+        await callback.answer("Отправил сообщение в личку")
+        return
+
+    await callback.answer("Не удалось отправить детали", show_alert=True)
