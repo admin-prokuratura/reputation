@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reputation-bot"
+version = "0.1.0"
+description = "Telegram reputation tracking bot"
+authors = [{name = "Reputation Bot Team"}]
+requires-python = ">=3.10"
+dependencies = [
+    "aiogram>=3.4.1",
+    "aiosqlite>=0.19.0",
+    "python-dotenv>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bot"]
