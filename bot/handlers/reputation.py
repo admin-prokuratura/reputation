@@ -67,7 +67,11 @@ def build_inline_article(summary: ReputationSummary) -> InlineQueryResultArticle
         id=f"summary-{summary.target}-{summary.chat_id or 'all'}",
         title=f"Репутация {summary.target}",
         description=f"Положительных: {summary.positive} | Отрицательных: {summary.negative}",
-        input_message_content=InputTextMessageContent(message_text, parse_mode="HTML", disable_web_page_preview=True),
+        input_message_content=InputTextMessageContent(
+            message_text=message_text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        ),
         reply_markup=keyboard,
     )
 
@@ -120,7 +124,7 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> No
                     title="Как искать репутацию",
                     description="Введи: rep username или rep username \"Название чата\"",
                     input_message_content=InputTextMessageContent(
-                        "Введите запрос в формате <code>rep username</code> или добавьте название чата в кавычках.",
+                        message_text="Введите запрос в формате <code>rep username</code> или добавьте название чата в кавычках.",
                         parse_mode="HTML",
                     ),
                 )
@@ -145,7 +149,9 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> No
             title=f"Репутация {summary.target}",
             description=f"Положительных: {summary.positive} | Отрицательных: {summary.negative}",
             input_message_content=InputTextMessageContent(
-                message_text, parse_mode="HTML", disable_web_page_preview=True
+                message_text=message_text,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
             ),
             reply_markup=build_detail_keyboard(summary.target, summary.chat_id),
         )
