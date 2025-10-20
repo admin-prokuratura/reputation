@@ -17,9 +17,7 @@ async def on_start(message: Message, settings: Settings) -> None:
     if message.chat.type != "private":
         return
     text = (
-        "👋 Привет! Я бот, который собирает репутацию по чатам.\n\n"
-        "Используйте команду <code>/rep username \"Название чата\"</code> или откройте inline-режим "
-        "через @бот. Я предложу быстрые кнопки для поиска."
+        "Не работаю по личке."
     )
     if settings.admin_ids and message.from_user and message.from_user.id in settings.admin_ids:
         text += (
