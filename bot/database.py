@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -13,6 +14,7 @@ class Database:
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
         self._conn: Optional[aiosqlite.Connection] = None
+        self._logger = logging.getLogger(__name__)
 
     async def connect(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -21,11 +23,13 @@ class Database:
         await self._conn.execute("PRAGMA foreign_keys = ON;")
         await self._conn.execute("PRAGMA journal_mode = WAL;")
         await self.init_models()
+        self._logger.info("Connected to database at %s", self._path)
 
     async def close(self) -> None:
         if self._conn is not None:
             await self._conn.close()
             self._conn = None
+            self._logger.info("Database connection closed")
 
     async def init_models(self) -> None:
         assert self._conn is not None
@@ -166,9 +170,16 @@ class Database:
             (user_id, target, chat_id),
         )
         await self.conn.commit()
+        self._logger.debug(
+            "Logged reputation request: user_id=%s target=%s chat_id=%s",
+            user_id,
+            target,
+            chat_id,
+        )
 
     async def store_reputation_entries(self, entries: Iterable[ReputationEntry]) -> int:
         if not entries:
+            self._logger.debug("No reputation entries to store")
             return 0
         query = (
             "INSERT OR IGNORE INTO reputation_entries (target, chat_id, message_id, sentiment, has_photo, has_media, "
@@ -178,6 +189,13 @@ class Database:
         await self.conn.execute("BEGIN")
         try:
             for entry in entries:
+                self._logger.debug(
+                    "Saving reputation entry: target=%s chat_id=%s message_id=%s sentiment=%s",
+                    entry.target,
+                    entry.chat_id,
+                    entry.message_id,
+                    entry.sentiment,
+                )
                 params = (
                     entry.target.lower(),
                     entry.chat_id,
@@ -194,9 +212,14 @@ class Database:
                 count += cursor.rowcount
         except Exception:
             await self.conn.rollback()
+            self._logger.exception("Failed to store reputation entries")
             raise
         else:
             await self.conn.commit()
+        if count:
+            self._logger.info("Stored %s new reputation entries", count)
+        else:
+            self._logger.debug("No new reputation entries stored (possibly duplicates)")
         return count
 
     async def add_manual_adjustment(self, target: str, chat_id: Optional[int], positive: int, negative: int,
@@ -336,6 +359,15 @@ class Database:
                 row = await cursor.fetchone()
                 if row:
                     chat_title = row[0]
+
+        self._logger.debug(
+            "Fetched summary: target=%s chat_id=%s positive=%s negative=%s details=%s",
+            target,
+            chat_id,
+            positive,
+            negative,
+            len(details),
+        )
 
         return ReputationSummary(
             target=target,
@@ -519,13 +551,16 @@ class Database:
             ("1" if value else "0",),
         )
         await self.conn.commit()
+        self._logger.info("Bot pause state set to %s", value)
 
     async def is_paused(self) -> bool:
         async with self.conn.execute("SELECT value FROM settings WHERE key = 'paused'") as cursor:
             row = await cursor.fetchone()
             if row is None:
                 return False
-            return row["value"] == "1"
+            paused = row["value"] == "1"
+            self._logger.debug("Pause state queried: %s", paused)
+            return paused
 
     async def set_last_processed_message(self, chat_id: int, message_id: int) -> None:
         await self.conn.execute(

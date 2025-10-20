@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import List
@@ -7,6 +8,9 @@ from typing import List
 from aiogram.types import Message
 
 from .models import ReputationEntry
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -40,9 +44,11 @@ def normalize_target(raw: str) -> str:
 def extract_reputation(text: str) -> List[ParsedReputation]:
     matches: List[ParsedReputation] = []
     if not text:
+        logger.debug("No text present in message for reputation extraction")
         return matches
     lowered = text.lower()
     if not any(keyword in lowered for keyword in KEYWORDS):
+        logger.debug("No reputation keywords detected in text: %s", text)
         return matches
     for pattern in RE_PATTERNS:
         for match in pattern.finditer(text):
@@ -54,6 +60,7 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
             matches.append(ParsedReputation(target=normalize_target(raw_target), sentiment=sentiment))
 
     if matches:
+        logger.debug("Reputation matches extracted: %s", matches)
         negative_mentions = {item.target for item in matches if item.sentiment == "negative"}
         mentions_in_text: List[str] = []
         for mention_match in MENTION_PATTERN.finditer(text):
@@ -65,6 +72,7 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
                 if mention not in negative_mentions:
                     matches.append(ParsedReputation(target=mention, sentiment="negative"))
                     negative_mentions.add(mention)
+        logger.debug("Final matches after mention balancing: %s", matches)
     return matches
 
 
@@ -84,25 +92,31 @@ def build_entries_from_message(message: Message) -> List[ReputationEntry]:
                         sentiment=sentiment,
                     )
                 )
+                logger.debug(
+                    "Sign-only reputation detected via reply: sign=%s target=%s",
+                    match.group("sign"),
+                    target_username,
+                )
     if not parsed:
+        logger.debug("No reputation entries detected for message_id=%s", message.message_id)
         return []
 
     has_photo = bool(message.photo)
     has_media = bool(message.video or message.document or message.animation)
     entries: List[ReputationEntry] = []
     for item in parsed:
-        entries.append(
-            ReputationEntry(
-                target=item.target,
-                chat_id=message.chat.id,
-                message_id=message.message_id,
-                sentiment=item.sentiment,
-                has_photo=has_photo,
-                has_media=has_media,
-                content=text,
-                author_id=message.from_user.id if message.from_user else None,
-                author_username=message.from_user.username if message.from_user else None,
-                message_date=message.date,
-            )
+        entry = ReputationEntry(
+            target=item.target,
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            sentiment=item.sentiment,
+            has_photo=has_photo,
+            has_media=has_media,
+            content=text,
+            author_id=message.from_user.id if message.from_user else None,
+            author_username=message.from_user.username if message.from_user else None,
+            message_date=message.date,
         )
+        entries.append(entry)
+        logger.debug("Prepared reputation entry for storage: %s", entry)
     return entries

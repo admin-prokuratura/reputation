@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from dotenv import load_dotenv
 
@@ -14,6 +14,8 @@ class Settings:
     admin_ids: List[int]
     database_path: Path
     paused: bool = False
+    log_level: str = "INFO"
+    log_file: Optional[Path] = None
 
     @classmethod
     def load(cls) -> "Settings":
@@ -30,4 +32,16 @@ class Settings:
 
         paused = os.getenv("BOT_PAUSED", "false").lower() in {"1", "true", "yes"}
 
-        return cls(token=token, admin_ids=admin_ids, database_path=database_path, paused=paused)
+        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+        log_file_raw = os.getenv("LOG_FILE")
+        log_file: Optional[Path] = Path(log_file_raw).expanduser() if log_file_raw else None
+
+        return cls(
+            token=token,
+            admin_ids=admin_ids,
+            database_path=database_path,
+            paused=paused,
+            log_level=log_level,
+            log_file=log_file,
+        )
