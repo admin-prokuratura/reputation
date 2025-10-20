@@ -243,7 +243,13 @@ class Database:
                 return row[0]
             return None
 
-    async def fetch_summary(self, target: str, chat_id: Optional[int] = None, limit: int = 30) -> ReputationSummary:
+    async def fetch_summary(
+        self,
+        target: str,
+        chat_id: Optional[int] = None,
+        limit: int = 30,
+        offset: int = 0,
+    ) -> ReputationSummary:
         target_key = target.lower()
         params: List[Any] = [target_key]
         where_clause = "target = ?"
@@ -279,17 +285,21 @@ class Database:
             row = await cursor.fetchone()
             pos_adj, neg_adj = (row[0] or 0, row[1] or 0) if row else (0, 0)
 
-        positive += pos_adj
-        negative += neg_adj
+        positive = max(0, (positive or 0) + pos_adj)
+        negative = max(0, (negative or 0) + neg_adj)
+        positive_with_media = max(0, min(positive, positive_with_media))
+        negative_with_media = max(0, min(negative, negative_with_media))
 
         details_sql = f"""
             SELECT chat_id, message_id, sentiment, has_photo, has_media, content, author_username, created_at
             FROM reputation_entries
             WHERE {where_clause}
             ORDER BY created_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
-        detail_params = params + [limit]
+        detail_limit = max(0, limit)
+        detail_offset = max(0, offset)
+        detail_params = params + [detail_limit, detail_offset]
         details: List[DetailedMessage] = []
         async with self.conn.execute(details_sql, detail_params) as cursor:
             async for row in cursor:
@@ -310,6 +320,11 @@ class Database:
                     )
                 )
 
+        count_sql = f"SELECT COUNT(*) FROM reputation_entries WHERE {where_clause}"
+        async with self.conn.execute(count_sql, params) as cursor:
+            count_row = await cursor.fetchone()
+            details_total = count_row[0] if count_row else 0
+
         chat_title = None
         if chat_id is not None:
             async with self.conn.execute("SELECT title FROM groups WHERE chat_id = ?", (chat_id,)) as cursor:
@@ -326,6 +341,7 @@ class Database:
             positive_with_media=positive_with_media,
             negative_with_media=negative_with_media,
             details=details,
+            details_total=details_total,
         )
 
     async def fetch_statistics(self) -> Dict[str, Any]:

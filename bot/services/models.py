@@ -42,6 +42,7 @@ class ReputationSummary:
     positive_with_media: int
     negative_with_media: int
     details: List[DetailedMessage]
+    details_total: int = 0
 
     @property
     def total(self) -> int:
