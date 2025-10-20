@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
@@ -9,11 +8,12 @@ from aiogram.enums import ParseMode
 from .config import Settings
 from .database import Database
 from .handlers import admin, basic, callbacks, reputation
+from .logging import setup_logging
 
 
 async def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     settings = Settings.load()
+    setup_logging(settings.log_level, settings.log_file)
     bot = Bot(settings.token, parse_mode=ParseMode.HTML)
     db = Database(settings.database_path)
     await db.connect()

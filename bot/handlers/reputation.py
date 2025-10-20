@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from aiogram import F, Router
@@ -16,19 +17,32 @@ from ..services.models import ReputationSummary
 from ..utils.parsing import parse_inline_query, parse_rep_arguments
 
 router = Router(name="reputation")
+logger = logging.getLogger(__name__)
 
 
 @router.message(F.chat.type.in_({"group", "supergroup"}) & (F.text | F.caption))
 async def capture_reputation(message: Message, db: Database) -> None:
     if await db.is_paused():
+        logger.debug("Capture skipped because bot is paused (chat_id=%s message_id=%s)", message.chat.id, message.message_id)
         return
     await db.register_group(message.chat.id, message.chat.title, message.chat.username, message.chat.type)
     entries = build_entries_from_message(message)
     if not entries:
+        logger.debug("No reputation entries extracted from message_id=%s", message.message_id)
         return
     stored = await db.store_reputation_entries(entries)
     if stored:
+        logger.info(
+            "Captured %s reputation entries from chat_id=%s message_id=%s",
+            stored,
+            message.chat.id,
+            message.message_id,
+        )
         await db.set_last_processed_message(message.chat.id, message.message_id)
+    else:
+        logger.debug(
+            "Reputation entries already stored for chat_id=%s message_id=%s", message.chat.id, message.message_id
+        )
 
 
 @router.message(Command("rep"))
@@ -142,6 +156,9 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> No
     target_clean = target.lstrip("@")
     chat_id, chat_title = await resolve_chat_id(db, chat_query)
     summary = await db.fetch_summary(target_clean, chat_id)
+    logger.debug(
+        "Inline query resolved: user_id=%s target=%s chat_id=%s", user.id if user else None, target_clean, chat_id
+    )
     note_prefix = ""
     if chat_query and chat_id is None:
         note_prefix = f"Чат «{escape_html(chat_query)}» не найден. \n\n"
@@ -162,7 +179,7 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> No
             reply_markup=build_detail_keyboard(summary.target, summary.chat_id),
         )
 
-    await query.answer([article], cache_time=5, is_personal=True)
+    await query.answer([article], cache_time=0, is_personal=True)
 
     if user:
         await db.increment_user_requests(user.id)
