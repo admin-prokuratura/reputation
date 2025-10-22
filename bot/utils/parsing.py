@@ -5,12 +5,15 @@ import shlex
 from typing import Optional, Tuple
 
 
+_COMMAND_PATTERN = re.compile(r"^/(?:rep|r)(?:@[\w\d_]{3,32})?$")
+
+
 def parse_rep_arguments(text: str) -> Tuple[Optional[str], Optional[str]]:
     parts = shlex.split(text)
     if not parts:
         return None, None
     first = parts[0].lower()
-    if first in {"/rep", "/r"}:
+    if _COMMAND_PATTERN.match(first):
         parts = parts[1:]
     if not parts:
         return None, None
