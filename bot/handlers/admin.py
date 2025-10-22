@@ -550,6 +550,8 @@ async def handle_account_code_inputs(
             await callback.answer()
             return
         try:
+            if not client.is_connected:
+                await client.connect()
             await client.sign_in(
                 state.phone_number,
                 code,
@@ -999,6 +1001,8 @@ async def handle_admin_inputs(
                 await _reset_pending_account(user_id)
                 return
             try:
+                if not client.is_connected:
+                    await client.connect()
                 await client.sign_in(
                     account_state.phone_number,
                     code,
@@ -1074,6 +1078,8 @@ async def handle_admin_inputs(
                 await _reset_pending_account(user_id)
                 return
             try:
+                if not client.is_connected:
+                    await client.connect()
                 await client.check_password(password)
             except errors.PasswordHashInvalid:
                 await message.reply("Incorrect password. Try again.")
