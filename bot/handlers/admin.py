@@ -299,7 +299,12 @@ async def admin_panel(message: Message, settings: Settings, db: Database) -> Non
 
 
 @router.callback_query(F.data.startswith("admin:"))
-async def admin_actions(callback: CallbackQuery, settings: Settings, db: Database, pool: PyrogramAccountPool) -> None:
+async def admin_actions(
+    callback: CallbackQuery,
+    settings: Settings,
+    db: Database,
+    account_pool: PyrogramAccountPool,
+) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
         await callback.answer("Недостаточно прав", show_alert=True)
@@ -706,7 +711,13 @@ async def perform_broadcast(message: Message, bot: Bot, db: Database, admin_id: 
 
 
 @router.message()
-async def handle_admin_inputs(message: Message, settings: Settings, db: Database, bot: Bot, pool: PyrogramAccountPool) -> None:
+async def handle_admin_inputs(
+    message: Message,
+    settings: Settings,
+    db: Database,
+    bot: Bot,
+    account_pool: PyrogramAccountPool,
+) -> None:
     if not message.from_user or not is_admin(message.from_user.id, settings):
         raise SkipHandler
     user_id = message.from_user.id
@@ -726,7 +737,7 @@ async def handle_admin_inputs(message: Message, settings: Settings, db: Database
         await db.set_setting("pyrogram_api_id", str(api_id))
         await db.set_setting("pyrogram_api_hash", api_hash)
         pending_api.pop(user_id, None)
-        await pool.configure(api_id, api_hash)
+        await account_pool.configure(api_id, api_hash)
         await message.reply("API credentials saved.")
         return
 
@@ -823,7 +834,7 @@ async def handle_admin_inputs(message: Message, settings: Settings, db: Database
             phone_number = account_state.phone_number
             pending_accounts.pop(user_id, None)
             await db.add_pyrogram_account(session_name, phone_number)
-            await pool.refresh()
+            await account_pool.refresh()
             await message.reply("Account added.")
             return
         if account_state.stage == "await_password":
@@ -850,7 +861,7 @@ async def handle_admin_inputs(message: Message, settings: Settings, db: Database
             phone_number = account_state.phone_number
             pending_accounts.pop(user_id, None)
             await db.add_pyrogram_account(session_name, phone_number)
-            await pool.refresh()
+            await account_pool.refresh()
             await message.reply("Account added.")
             return
         return
