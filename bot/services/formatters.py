@@ -151,28 +151,6 @@ def build_detail_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def build_rep_command_keyboard(target: str, chat_query: Optional[str]) -> InlineKeyboardMarkup:
-    buttons = []
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="Посмотреть всю репутацию",
-                switch_inline_query_current_chat=f"rep {target}",
-            )
-        ]
-    )
-    if chat_query:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"Посмотреть в «{chat_query}»",
-                    switch_inline_query_current_chat=f"rep {target} \"{chat_query}\"",
-                )
-            ]
-        )
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
 def escape_html(text: str) -> str:
     return (
         text.replace("&", "&amp;")
