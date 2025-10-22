@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+bot/__init__.py
+bot/config.py
+bot/database.py
+bot/logging.py
+bot/main.py
+reputation_bot.egg-info/PKG-INFO
+reputation_bot.egg-info/SOURCES.txt
+reputation_bot.egg-info/dependency_links.txt
+reputation_bot.egg-info/requires.txt
+reputation_bot.egg-info/top_level.txt
+tests/test_database_summary.py
+tests/test_parsing.py
+tests/test_reputation_detector.py

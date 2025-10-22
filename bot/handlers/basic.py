@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+from html import escape
+
 from aiogram import F, Router
+from aiogram.enums import ChatMemberStatus
 from aiogram.filters import Command, CommandStart
 from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 from aiogram.types.chat_member_updated import ChatMemberUpdated
-from aiogram.enums import ChatMemberStatus
-from html import escape
 
 from ..config import Settings
 from ..database import Database
 
 router = Router(name="basic")
 
-
-MENU_INFO_BUTTON = "Информация"
-MENU_INSTRUCTION_BUTTON = "Инструкция"
+MENU_INFO_BUTTON = "Active Groups"
+MENU_INSTRUCTION_BUTTON = "How It Works"
 
 PRIVATE_MENU = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text=MENU_INFO_BUTTON), KeyboardButton(text=MENU_INSTRUCTION_BUTTON)]],
@@ -28,15 +28,13 @@ async def on_start(message: Message, settings: Settings) -> None:
         return
     text = "\n".join(
         [
-            "Привет! Я бот «Ник бота». Я создан для защиты ваших сделок.",
+            "Welcome! This bot helps the Apex community track reputation feedback.",
             "",
-            "Нажмите кнопку ниже, чтобы узнать подробнее, или отправьте команду <code>/r @username</code> для проверки репутации.",
+            "Use <code>/r @username</code> to request the latest reputation summary after completing the required channel subscriptions.",
         ]
     )
     if settings.admin_ids and message.from_user and message.from_user.id in settings.admin_ids:
-        text += (
-            "\n\nВы являетесь администратором. Откройте /admin для панели управления."
-        )
+        text += "\n\nYou have administrator privileges. Open /admin to manage the bot."
     await message.answer(text, reply_markup=PRIVATE_MENU)
 
 
@@ -47,9 +45,12 @@ async def show_information(message: Message, db: Database) -> None:
     groups = await db.list_groups()
     active = [item for item in groups if item.get("is_active")]
     if not active:
-        text = "ℹ️ Пока бот не отслеживает ни один чат. Добавьте его в группу, чтобы начать сбор репутации."
+        text = (
+            "No active groups are registered yet. Invite the bot to a group and run /id so the "
+            "administrators can approve it."
+        )
     else:
-        lines = ["ℹ️ <b>Бот отслеживает следующие чаты:</b>"]
+        lines = ["<b>Active reputation groups</b>"]
         for group in active:
             title = group.get("title") or ""
             username = group.get("username")
@@ -73,11 +74,11 @@ async def show_instruction(message: Message) -> None:
         return
     text = "\n".join(
         [
-            "🛡 <b>Как проверить репутацию</b>",
+            "<b>How to request a reputation summary</b>",
             "",
-            "1. Отправьте команду <code>/r @username</code> — бот покажет все найденные отзывы.",
-            "2. Чтобы сузить поиск до конкретного чата, добавьте его название: <code>/r @username \"Название чата\"</code>.",
-            "3. Команда доступна как в группах, так и в личных сообщениях с ботом.",
+            "1. In the group chat send <code>/r @username</code> to see the current balance.",
+            "2. To limit the search to a specific chat provide its title: <code>/r @username \"Community\"</code>.",
+            "3. Inline mode works everywhere: type <code>@your_bot rep username</code> and choose a result.",
         ]
     )
     await message.answer(text, reply_markup=PRIVATE_MENU)
@@ -89,7 +90,7 @@ async def chat_id(message: Message, settings: Settings) -> None:
         not message.from_user or message.from_user.id not in settings.admin_ids
     ):
         return
-    await message.reply(f"ID этого чата: <code>{message.chat.id}</code>")
+    await message.reply(f"Chat ID: <code>{message.chat.id}</code>")
 
 
 @router.my_chat_member()

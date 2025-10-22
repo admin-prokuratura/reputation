@@ -16,6 +16,7 @@ from ..config import Settings
 from ..database import Database
 from ..services.formatters import build_detail_keyboard, escape_html, format_summary
 from ..services.reputation_detector import build_entries_from_message
+from ..services.reputation_fetcher import ReputationFetcher
 from ..services.models import ReputationSummary
 from ..utils.parsing import parse_inline_query, parse_rep_arguments
 
@@ -49,7 +50,7 @@ async def capture_reputation(message: Message, db: Database) -> None:
 
 
 @router.message(Command(commands=["r", "rep"]))
-async def rep_command(message: Message, db: Database, settings: Settings) -> None:
+async def rep_command(message: Message, db: Database, settings: Settings, fetcher: ReputationFetcher) -> None:
     if not message.from_user:
         return
 
@@ -84,6 +85,10 @@ async def rep_command(message: Message, db: Database, settings: Settings) -> Non
         chat_id = message.chat.id
         chat_title = message.chat.title
 
+    try:
+        await fetcher.refresh_target(target_clean, chat_id)
+    except Exception:
+        logger.exception("Failed to refresh reputation for target=%s", target_clean)
     summary = await db.fetch_summary(target_clean, chat_id)
     if chat_title and not summary.chat_title:
         summary.chat_title = chat_title
@@ -134,7 +139,7 @@ async def resolve_chat_id(db: Database, chat_query: Optional[str]) -> tuple[Opti
 
 
 @router.inline_query()
-async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> None:
+async def inline_rep(query: InlineQuery, db: Database, settings: Settings, fetcher: ReputationFetcher) -> None:
     user = query.from_user
     if user:
         await db.ensure_user(user.id, user.username, user.first_name, user.last_name)
@@ -178,6 +183,10 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings) -> No
 
     target_clean = target.lstrip("@")
     chat_id, chat_title = await resolve_chat_id(db, chat_query)
+    try:
+        await fetcher.refresh_target(target_clean, chat_id)
+    except Exception:
+        logger.exception("Failed to refresh inline reputation for target=%s", target_clean)
     summary = await db.fetch_summary(target_clean, chat_id)
     logger.debug(
         "Inline query resolved: user_id=%s target=%s chat_id=%s", user.id if user else None, target_clean, chat_id

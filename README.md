@@ -49,3 +49,23 @@
 - Бот корректно работает без прав администратора — достаточно присутствовать в чате, чтобы считывать новые сообщения.
 - Для чатов, где сообщения с репутацией удаляются, записи сохраняются в базе, а при повторных проверках добавляются только новые сообщения по `message_id`.
 - Дизайн сообщений использует современную HTML-разметку и эмодзи для улучшения восприятия.
+
+
+## Backfilling historical messages
+
+Run the helper script to import legacy `+rep`/`-rep` mentions that were sent before the bot joined the chats:
+
+```bash
+python -m bot.scripts.backfill_reputation \
+  --api-id <telegram-api-id> \
+  --api-hash <telegram-api-hash> \
+  --session backfill.session \
+  --database data/reputation.db \
+  --chats @group_username -1001234567890 \
+  --safe-delay 0.6 \
+  --update-last-processed
+```
+
+Use Pyrogram user credentials (API ID/HASH) and the list of group usernames/IDs you want to scan. The script reuses the same reputation parser, automatically inserts new rows into `reputation_entries`, and can resume safely thanks to `INSERT OR IGNORE`. Provide `--limit` if you only want to backfill a portion of the history, and tune `--safe-delay` if Telegram warns about flood limits (larger values slow the crawl but minimise account risk).
+
+Админ-панель поддерживает пункт «Настройка аккаунта»: можно сохранить Pyrogram API ID/Hash и авторизовать несколько пользовательских аккаунтов. Бот распределяет запросы репутации по ним по кругу, снижая нагрузку на каждый аккаунт.

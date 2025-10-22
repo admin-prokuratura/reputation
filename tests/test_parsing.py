@@ -1,4 +1,4 @@
-from bot.utils.parsing import parse_rep_arguments
+from bot.utils.parsing import parse_inline_query, parse_rep_arguments
 
 
 def test_parse_rep_arguments_without_inline_mode():
@@ -14,3 +14,10 @@ def test_parse_rep_arguments_full_command_with_chat():
         "target",
         "Some Chat",
     )
+
+def test_parse_inline_query_ignores_leading_comma():
+    assert parse_inline_query(", @target") == ("@target", None)
+
+
+def test_parse_inline_query_splits_trailing_comma():
+    assert parse_inline_query("@target, chat") == ("@target", "chat")

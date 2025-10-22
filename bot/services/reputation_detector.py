@@ -20,27 +20,35 @@ class ParsedReputation:
     sentiment: str
 
 
-KEYWORDS = ("rep", "реп", "репутация", "репу")
+KEYWORDS = (
+    "rep",
+    "\u0440\u0435\u043f",
+    "\u0440\u0435\u043f\u0443\u0442\u0430\u0446\u0438\u044f",
+    "\u0440\u0435\u043f\u0443",
+)
 RE_PATTERNS = [
-    re.compile(r"(?P<sign>[+-])\s*(?:rep|реп)\b\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
     re.compile(
-        r"(?P<target>@?[\w\d_]{3,64})\s*(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b",
+        r"(?P<sign>[+-]+)\s*(?:rep|\u0440\u0435\u043f)\b\s*(?P<target>@?[\w\d_]{3,64})",
         re.IGNORECASE,
     ),
     re.compile(
-        r"(?P<sign>[+-])\s*(?:репу|репутац(?:ию|ия))\b\s*(?P<target>@?[\w\d_]{3,64})",
+        r"(?P<target>@?[\w\d_]{3,64})\s*(?P<sign>[+-]+)\s*(?:rep|\u0440\u0435\u043f|\u0440\u0435\u043f\u0443|\u0440\u0435\u043f\u0443\u0442\u0430\u0446(?:\u0438\u044e|\u0438\u044f))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?P<sign>[+-]+)\s*(?:\u0440\u0435\u043f\u0443|\u0440\u0435\u043f\u0443\u0442\u0430\u0446(?:\u0438\u044e|\u0438\u044f))\b\s*(?P<target>@?[\w\d_]{3,64})",
         re.IGNORECASE,
     ),
 ]
 
 SIGN_ONLY_PATTERN = re.compile(
-    r"(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b",
+    r"(?P<sign>[+-]+)\s*(?:rep|\u0440\u0435\u043f|\u0440\u0435\u043f\u0443|\u0440\u0435\u043f\u0443\u0442\u0430\u0446(?:\u0438\u044e|\u0438\u044f))\b",
     re.IGNORECASE,
 )
 
 MENTION_PATTERN = re.compile(r"@([\w\d_]{3,64})")
 TOKEN_PATTERN = re.compile(
-    r"(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b|(?P<mention>@[\w\d_]{3,64})",
+    r"(?P<sign>[+-]+)\s*(?:rep|\u0440\u0435\u043f|\u0440\u0435\u043f\u0443|\u0440\u0435\u043f\u0443\u0442\u0430\u0446(?:\u0438\u044e|\u0438\u044f))\b|(?P<mention>@[\w\d_]{3,64})",
     re.IGNORECASE,
 )
 
@@ -50,6 +58,14 @@ def normalize_target(raw: str) -> str:
     if target.startswith("@"):
         target = target[1:]
     return target.lower()
+
+
+def _resolve_sentiment(sign: str) -> str:
+    plus_count = sign.count("+")
+    minus_count = sign.count("-")
+    if plus_count >= minus_count:
+        return "positive"
+    return "negative"
 
 
 def extract_reputation(text: str) -> List[ParsedReputation]:
@@ -75,7 +91,7 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
             raw_target = match.group("target")
             if not raw_target:
                 continue
-            sentiment = "positive" if sign == "+" else "negative"
+            sentiment = _resolve_sentiment(sign)
             register(normalize_target(raw_target), sentiment)
 
     pending_mentions: List[str] = []
@@ -84,7 +100,7 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
     for token in TOKEN_PATTERN.finditer(text):
         if token.group("sign"):
             sign = token.group("sign")
-            sentiment = "positive" if sign == "+" else "negative"
+            sentiment = _resolve_sentiment(sign)
             if pending_mentions:
                 for pending in pending_mentions:
                     register(pending, sentiment)
@@ -97,11 +113,15 @@ def extract_reputation(text: str) -> List[ParsedReputation]:
             elif mention not in pending_mentions:
                 pending_mentions.append(mention)
 
-    matches = [ParsedReputation(target=target, sentiment=sentiment) for target, sentiment in sentiments.items()]
+    matches = [
+        ParsedReputation(target=target, sentiment=sentiment)
+        for target, sentiment in sentiments.items()
+    ]
 
     if matches:
         logger.debug("Reputation matches extracted: %s", matches)
     return matches
+
 
 def build_entries_from_message(message: Message) -> List[ReputationEntry]:
     text = message.text or message.caption or ""
@@ -112,7 +132,7 @@ def build_entries_from_message(message: Message) -> List[ReputationEntry]:
             match = SIGN_ONLY_PATTERN.search(text)
             if match:
                 target_username = reply_user.username or str(reply_user.id)
-                sentiment = "positive" if match.group("sign") == "+" else "negative"
+                sentiment = _resolve_sentiment(match.group("sign"))
                 parsed.append(
                     ParsedReputation(
                         target=normalize_target(target_username),
@@ -125,7 +145,10 @@ def build_entries_from_message(message: Message) -> List[ReputationEntry]:
                     target_username,
                 )
     if not parsed:
-        logger.debug("No reputation entries detected for message_id=%s", message.message_id)
+        logger.debug(
+            "No reputation entries detected for message_id=%s",
+            message.message_id,
+        )
         return []
 
     has_photo = bool(message.photo)

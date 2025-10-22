@@ -102,6 +102,15 @@ class Database:
                 value TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS pyrogram_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_name TEXT UNIQUE NOT NULL,
+                phone_number TEXT,
+                is_active INTEGER DEFAULT 1,
+                last_used_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_reputation_entries_target_chat
                 ON reputation_entries(target, chat_id);
             CREATE INDEX IF NOT EXISTS idx_reputation_entries_created_at
@@ -587,6 +596,71 @@ class Database:
             if row:
                 return row[0]
             return None
+
+    async def set_setting(self, key: str, value: Optional[str]) -> None:
+        if value is None:
+            await self.conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+        else:
+            await self.conn.execute(
+                "INSERT INTO settings(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (key, value),
+            )
+        await self.conn.commit()
+
+    async def get_setting(self, key: str) -> Optional[str]:
+        async with self.conn.execute("SELECT value FROM settings WHERE key = ?", (key,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+        return None
+
+    async def list_pyrogram_accounts(self, only_active: bool = False) -> List[Dict[str, Any]]:
+        sql = "SELECT session_name, phone_number, is_active, last_used_at, created_at FROM pyrogram_accounts"
+        params: tuple = ()
+        if only_active:
+            sql += " WHERE is_active = 1"
+        sql += " ORDER BY created_at"
+        accounts: List[Dict[str, Any]] = []
+        async with self.conn.execute(sql, params) as cursor:
+            async for row in cursor:
+                accounts.append(
+                    {
+                        "session_name": row["session_name"],
+                        "phone_number": row["phone_number"],
+                        "is_active": bool(row["is_active"]),
+                        "last_used_at": row["last_used_at"],
+                        "created_at": row["created_at"],
+                    }
+                )
+        return accounts
+
+    async def add_pyrogram_account(self, session_name: str, phone_number: Optional[str]) -> None:
+        await self.conn.execute(
+            """
+            INSERT INTO pyrogram_accounts (session_name, phone_number, is_active)
+            VALUES (?, ?, 1)
+            ON CONFLICT(session_name) DO UPDATE SET
+                phone_number=excluded.phone_number,
+                is_active=1
+            """,
+            (session_name, phone_number),
+        )
+        await self.conn.commit()
+
+    async def deactivate_pyrogram_account(self, session_name: str) -> None:
+        await self.conn.execute(
+            "UPDATE pyrogram_accounts SET is_active = 0 WHERE session_name = ?",
+            (session_name,),
+        )
+        await self.conn.commit()
+
+    async def mark_pyrogram_account_used(self, session_name: str) -> None:
+        await self.conn.execute(
+            "UPDATE pyrogram_accounts SET last_used_at = CURRENT_TIMESTAMP WHERE session_name = ?",
+            (session_name,),
+        )
+        await self.conn.commit()
 
 
 def build_message_link(chat_id: int, message_id: int) -> str:

@@ -4,21 +4,31 @@ import re
 import shlex
 from typing import Optional, Tuple
 
+_TRIM_CHARS = ",;:!.\u2014\u2013"  # strip common punctuation around tokens
+
 
 _COMMAND_PATTERN = re.compile(r"^/(?:rep|r)(?:@[\w\d_]{3,32})?$")
 
 
 def parse_rep_arguments(text: str) -> Tuple[Optional[str], Optional[str]]:
-    parts = shlex.split(text)
-    if not parts:
+    stripped = text.lstrip(" \t" + _TRIM_CHARS)
+    parts = shlex.split(stripped)
+    cleaned: list[str] = []
+    for part in parts:
+        candidate = part.strip(_TRIM_CHARS)
+        if candidate:
+            cleaned.append(candidate)
+    if not cleaned:
         return None, None
-    first = parts[0].lower()
+
+    first = cleaned[0].lower()
     if _COMMAND_PATTERN.match(first):
-        parts = parts[1:]
-    if not parts:
+        cleaned = cleaned[1:]
+    if not cleaned:
         return None, None
-    target = parts[0]
-    chat_title = parts[1] if len(parts) > 1 else None
+
+    target = cleaned[0]
+    chat_title = cleaned[1] if len(cleaned) > 1 else None
     return target, chat_title
 
 
@@ -27,6 +37,7 @@ _INLINE_PREFIX = re.compile(r"^(?:[+\-/]?)(?:rep|r)\b", re.IGNORECASE)
 
 def parse_inline_query(query: str) -> Tuple[Optional[str], Optional[str]]:
     query = query.strip()
+    query = query.lstrip(_TRIM_CHARS)
     if not query:
         return None, None
 
