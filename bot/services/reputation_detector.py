@@ -22,9 +22,15 @@ class ParsedReputation:
 
 KEYWORDS = ("rep", "реп", "репутация", "репу")
 RE_PATTERNS = [
-    re.compile(r"(?P<sign>[+-])\s*(?:rep|реп)\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
-    re.compile(r"(?P<target>@?[\w\d_]{3,64})\s*(?P<sign>[+-])\s*(?:rep|реп)", re.IGNORECASE),
-    re.compile(r"(?P<sign>[+-])\s*(?:репу|репутацию)\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
+    re.compile(r"(?P<sign>[+-])\s*(?:rep|реп)\b\s*(?P<target>@?[\w\d_]{3,64})", re.IGNORECASE),
+    re.compile(
+        r"(?P<target>@?[\w\d_]{3,64})\s*(?P<sign>[+-])\s*(?:rep|реп|репу|репутац(?:ию|ия))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?P<sign>[+-])\s*(?:репу|репутац(?:ию|ия))\b\s*(?P<target>@?[\w\d_]{3,64})",
+        re.IGNORECASE,
+    ),
 ]
 
 SIGN_ONLY_PATTERN = re.compile(

@@ -31,6 +31,12 @@ class ExtractReputationTests(unittest.TestCase):
         sentiments = {item.target: item.sentiment for item in result}
         self.assertEqual(sentiments, {"userone": "positive", "usertwo": "positive", "userthree": "negative"})
 
+    def test_rep_variation_with_target_before_sign(self):
+        text = "@UserOne + репутацию"
+        result = extract_reputation(text)
+        sentiments = {item.target: item.sentiment for item in result}
+        self.assertEqual(sentiments, {"userone": "positive"})
+
 
 class BuildEntriesFromMessageTests(unittest.TestCase):
     def _make_message(self, text: str, reply_user: SimpleNamespace | None = None):
