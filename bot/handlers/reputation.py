@@ -50,7 +50,12 @@ async def capture_reputation(message: Message, db: Database) -> None:
 
 
 @router.message(Command(commands=["r", "rep"], ignore_mention=True))
-async def rep_command(message: Message, db: Database, settings: Settings, fetcher: ReputationFetcher) -> None:
+async def rep_command(
+    message: Message,
+    db: Database,
+    settings: Settings,
+    reputation_fetcher: ReputationFetcher,
+) -> None:
     if not message.from_user:
         return
 
@@ -86,7 +91,7 @@ async def rep_command(message: Message, db: Database, settings: Settings, fetche
         chat_title = message.chat.title
 
     try:
-        await fetcher.refresh_target(target_clean, chat_id)
+        await reputation_fetcher.refresh_target(target_clean, chat_id)
     except Exception:
         logger.exception("Failed to refresh reputation for target=%s", target_clean)
     summary = await db.fetch_summary(target_clean, chat_id)
@@ -139,7 +144,12 @@ async def resolve_chat_id(db: Database, chat_query: Optional[str]) -> tuple[Opti
 
 
 @router.inline_query()
-async def inline_rep(query: InlineQuery, db: Database, settings: Settings, fetcher: ReputationFetcher) -> None:
+async def inline_rep(
+    query: InlineQuery,
+    db: Database,
+    settings: Settings,
+    reputation_fetcher: ReputationFetcher,
+) -> None:
     user = query.from_user
     if user:
         await db.ensure_user(user.id, user.username, user.first_name, user.last_name)
@@ -184,7 +194,7 @@ async def inline_rep(query: InlineQuery, db: Database, settings: Settings, fetch
     target_clean = target.lstrip("@")
     chat_id, chat_title = await resolve_chat_id(db, chat_query)
     try:
-        await fetcher.refresh_target(target_clean, chat_id)
+        await reputation_fetcher.refresh_target(target_clean, chat_id)
     except Exception:
         logger.exception("Failed to refresh inline reputation for target=%s", target_clean)
     summary = await db.fetch_summary(target_clean, chat_id)
