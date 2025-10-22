@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
 import shlex
@@ -86,43 +86,43 @@ def _format_date(value: Optional[datetime]) -> Optional[str]:
 
 
 def format_enhanced_statistics(stats: Dict[str, Any]) -> str:
-    lines = ["рџ“Љ <b>РЎС‚Р°С‚РёСЃС‚РёРєР°</b>"]
-    lines.append(f"РђРєС‚РёРІРЅС‹С… РіСЂСѓРїРї: <b>{stats['active_groups']}</b>")
-    lines.append(f"Р’СЃРµРіРѕ РѕС‚Р·С‹РІРѕРІ: <b>{stats['total_entries']}</b>")
+    lines = ["📊 <b>Статистика</b>"]
+    lines.append(f"Активных групп: <b>{stats['active_groups']}</b>")
+    lines.append(f"Всего отзывов: <b>{stats['total_entries']}</b>")
     lines.append(
-        f"РџРѕР»РѕР¶РёС‚РµР»СЊРЅС‹С…: <b>{stats['positive_total']}</b> В· РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹С…: <b>{stats['negative_total']}</b>"
+        f"Положительных: <b>{stats['positive_total']}</b> · Отрицательных: <b>{stats['negative_total']}</b>"
     )
     lines.append(
-        f"Р‘Р°Р»Р°РЅСЃ: <b>{stats['balance_total']:+d}</b> В· Р”РѕР»СЏ РїРѕР·РёС‚РёРІРЅС‹С…: <b>{stats['positive_share']}%</b>"
+        f"Баланс: <b>{stats['balance_total']:+d}</b> · Доля позитивных: <b>{stats['positive_share']}%</b>"
     )
     lines.append(
-        "РџРѕР»СЊР·РѕРІР°С‚РµР»РµР№: "
-        f"<b>{stats['total_users']}</b> (в‰€ {stats['avg_requests_per_user']:.1f} Р·Р°РїСЂРѕСЃРѕРІ РЅР° С‡РµР»РѕРІРµРєР°)"
+        "Пользователей: "
+        f"<b>{stats['total_users']}</b> (≈ {stats['avg_requests_per_user']:.1f} запросов на человека)"
     )
-    lines.append(f"Р’СЃРµРіРѕ Р·Р°РїСЂРѕСЃРѕРІ: <b>{stats['total_requests']}</b>")
+    lines.append(f"Всего запросов: <b>{stats['total_requests']}</b>")
     first_formatted = _format_date(stats.get("first_entry_at"))
     last_formatted = _format_date(stats.get("last_entry_at"))
     if first_formatted and last_formatted:
         lines.append(
-            f"РџРµСЂРёРѕРґ РЅР°Р±Р»СЋРґРµРЅРёР№: <b>{first_formatted}</b> вЂ“ <b>{last_formatted}</b>"
-            f" ({stats['active_days']} РґРЅ.)"
+            f"Период наблюдений: <b>{first_formatted}</b> – <b>{last_formatted}</b>"
+            f" ({stats['active_days']} дн.)"
         )
-    lines.append(f"РЎСЂРµРґРЅРёР№ РїРѕС‚РѕРє РІ РґРµРЅСЊ: <b>{stats['daily_average']:.1f}</b>")
-    lines.append(f"Р”РѕР±Р°РІР»РµРЅРѕ Р·Р° 30 РґРЅРµР№: <b>{stats['recent_30_days']}</b>")
+    lines.append(f"Средний поток в день: <b>{stats['daily_average']:.1f}</b>")
+    lines.append(f"Добавлено за 30 дней: <b>{stats['recent_30_days']}</b>")
     if stats['top_targets']:
         lines.append("")
-        lines.append("рџЏ… <b>РўРћРџ СѓС‡Р°СЃС‚РЅРёРєРѕРІ РїРѕ РѕС‚Р·С‹РІР°Рј</b>")
+        lines.append("🏅 <b>ТОП участников по отзывам</b>")
         for index, item in enumerate(stats['top_targets'], start=1):
             target = escape_html(item['target'])
             lines.append(
-                f"{index}. <code>{target}</code> вЂ” {item['total']} С€С‚."
-                f" (Р±Р°Р»Р°РЅСЃ {item['balance']:+d}, рџџў {item['positive_share']}%)"
+                f"{index}. <code>{target}</code> — {item['total']} шт."
+                f" (баланс {item['balance']:+d}, 🟢 {item['positive_share']}%)"
             )
         lines.append("")
-        lines.append("Р’С‹Р±РµСЂРёС‚Рµ СѓС‡Р°СЃС‚РЅРёРєР° РєРЅРѕРїРєРѕР№ РЅРёР¶Рµ, С‡С‚РѕР±С‹ РѕС‚РєСЂС‹С‚СЊ РїРѕРґСЂРѕР±РЅС‹Р№ РѕС‚С‡С‘С‚.")
+        lines.append("Выберите участника кнопкой ниже, чтобы открыть подробный отчёт.")
     else:
         lines.append("")
-        lines.append("РџРѕРєР° РЅРµС‚ СѓС‡Р°СЃС‚РЅРёРєРѕРІ СЃ РѕС‚Р·С‹РІР°РјРё.")
+        lines.append("Пока нет участников с отзывами.")
     return "\n".join(lines)
 
 
@@ -134,7 +134,7 @@ def build_stats_keyboard(top_targets: list[dict[str, Any]]) -> InlineKeyboardMar
         target = item["target"]
         token = hashlib.sha1(target.lower().encode("utf-8")).hexdigest()[:10]
         stats_target_cache[token] = target
-        label_target = target if len(target) <= 24 else f"{target[:23]}вЂ¦"
+        label_target = target if len(target) <= 24 else f"{target[:23]}…"
         inline_keyboard.append(
             [
                 InlineKeyboardButton(
@@ -145,8 +145,8 @@ def build_stats_keyboard(top_targets: list[dict[str, Any]]) -> InlineKeyboardMar
         )
     inline_keyboard.append(
         [
-            InlineKeyboardButton(text="рџ”„ РћР±РЅРѕРІРёС‚СЊ", callback_data="admin:stats:refresh"),
-            InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="admin:stats:refresh"),
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home"),
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
@@ -157,16 +157,16 @@ def is_admin(user_id: int, settings: Settings) -> bool:
 
 
 def build_admin_keyboard(paused: bool) -> InlineKeyboardMarkup:
-    pause_label = "в–¶пёЏ Р’РѕР·РѕР±РЅРѕРІРёС‚СЊ" if paused else "вЏё РџР°СѓР·Р°"
+    pause_label = "▶️ Возобновить" if paused else "⏸ Пауза"
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="рџ“Љ РЎС‚Р°С‚РёСЃС‚РёРєР°", callback_data="admin:stats")],
-            [InlineKeyboardButton(text="рџ‘Ґ РџРѕР»СЊР·РѕРІР°С‚РµР»Рё", callback_data="admin:users")],
+            [InlineKeyboardButton(text="📊 Статистика", callback_data="admin:stats")],
+            [InlineKeyboardButton(text="👥 Пользователи", callback_data="admin:users")],
             [InlineKeyboardButton(text=pause_label, callback_data="admin:pause")],
-            [InlineKeyboardButton(text="в­ђ РЈРїСЂР°РІР»РµРЅРёРµ СЂРµРїСѓС‚Р°С†РёРµР№", callback_data="admin:reputation")],
-            [InlineKeyboardButton(text="рџ“Ј Р Р°СЃСЃС‹Р»РєР°", callback_data="admin:broadcast")],
-            [InlineKeyboardButton(text="РќР°СЃС‚СЂРѕР№РєР° Р°РєРєР°СѓРЅС‚Р°", callback_data="admin:accounts")],
-            [InlineKeyboardButton(text="рџ’¬ Р“СЂСѓРїРїС‹", callback_data="admin:groups")],
+            [InlineKeyboardButton(text="⭐ Управление репутацией", callback_data="admin:reputation")],
+            [InlineKeyboardButton(text="📣 Рассылка", callback_data="admin:broadcast")],
+            [InlineKeyboardButton(text="Настройка аккаунта", callback_data="admin:accounts")],
+            [InlineKeyboardButton(text="💬 Группы", callback_data="admin:groups")],
         ]
     )
 
@@ -188,8 +188,8 @@ def build_users_keyboard(users: list[dict[str, object]]) -> InlineKeyboardMarkup
         user_id = item["user_id"]
         blocked = bool(item["blocked"])
         action = "unblock" if blocked else "block"
-        label = "Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ" if blocked else "Р—Р°Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ"
-        emoji = "вњ…" if blocked else "рџљ«"
+        label = "Разблокировать" if blocked else "Заблокировать"
+        emoji = "✅" if blocked else "🚫"
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -200,8 +200,8 @@ def build_users_keyboard(users: list[dict[str, object]]) -> InlineKeyboardMarkup
         )
     keyboard.append(
         [
-            InlineKeyboardButton(text="рџ”„ РћР±РЅРѕРІРёС‚СЊ", callback_data="admin:users:refresh"),
-            InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="admin:users:refresh"),
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home"),
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -214,15 +214,15 @@ def build_groups_keyboard(groups: list[dict[str, object]]) -> InlineKeyboardMark
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=f"вќЊ РЈРґР°Р»РёС‚СЊ {chat_id}",
+                    text=f"❌ Удалить {chat_id}",
                     callback_data=f"admin:group:drop:{chat_id}",
                 )
             ]
         )
     keyboard.append(
         [
-            InlineKeyboardButton(text="рџ”„ РћР±РЅРѕРІРёС‚СЊ", callback_data="admin:groups:refresh"),
-            InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home"),
+            InlineKeyboardButton(text="🔄 Обновить", callback_data="admin:groups:refresh"),
+            InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home"),
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -231,9 +231,9 @@ def build_groups_keyboard(groups: list[dict[str, object]]) -> InlineKeyboardMark
 def build_broadcast_scope_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="рџ‘Ґ РџРѕР»СЊР·РѕРІР°С‚РµР»СЏРј", callback_data="admin:broadcast:scope:users")],
-            [InlineKeyboardButton(text="рџ’¬ Р“СЂСѓРїРїР°Рј", callback_data="admin:broadcast:scope:groups")],
-            [InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")],
+            [InlineKeyboardButton(text="👥 Пользователям", callback_data="admin:broadcast:scope:users")],
+            [InlineKeyboardButton(text="💬 Группам", callback_data="admin:broadcast:scope:groups")],
+            [InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")],
         ]
     )
 
@@ -241,49 +241,49 @@ def build_broadcast_scope_keyboard() -> InlineKeyboardMarkup:
 def build_broadcast_button_choice() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="вћ• Р”РѕР±Р°РІРёС‚СЊ РєРЅРѕРїРєСѓ", callback_data="admin:broadcast:add_button:yes")],
-            [InlineKeyboardButton(text="вћЎпёЏ РћС‚РїСЂР°РІРёС‚СЊ Р±РµР· РєРЅРѕРїРєРё", callback_data="admin:broadcast:add_button:no")],
-            [InlineKeyboardButton(text="вќЊ РћС‚РјРµРЅР°", callback_data="admin:broadcast:cancel")],
+            [InlineKeyboardButton(text="➕ Добавить кнопку", callback_data="admin:broadcast:add_button:yes")],
+            [InlineKeyboardButton(text="➡️ Отправить без кнопки", callback_data="admin:broadcast:add_button:no")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="admin:broadcast:cancel")],
         ]
     )
 
 
 def format_users_list(users: list[dict[str, object]]) -> str:
     if not users:
-        return "РџРѕРєР° РЅРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№."
-    lines = ["рџ‘Ґ <b>РўРћРџ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№</b>"]
+        return "Пока нет пользователей."
+    lines = ["👥 <b>ТОП пользователей</b>"]
     for item in users:
-        username = f"@{escape_html(item['username'])}" if item['username'] else "вЂ”"
-        status = "рџљ«" if item['blocked'] else "вњ…"
+        username = f"@{escape_html(item['username'])}" if item['username'] else "—"
+        status = "🚫" if item['blocked'] else "✅"
         lines.append(
-            f"{status} {username} вЂ” {item['request_count']} Р·Р°РїСЂРѕСЃРѕРІ (ID: <code>{item['user_id']}</code>)"
+            f"{status} {username} — {item['request_count']} запросов (ID: <code>{item['user_id']}</code>)"
         )
-    lines.append("\nРСЃРїРѕР»СЊР·СѓР№С‚Рµ РєРЅРѕРїРєРё РЅРёР¶Рµ, С‡С‚РѕР±С‹ РѕРіСЂР°РЅРёС‡РёС‚СЊ РёР»Рё РІРµСЂРЅСѓС‚СЊ РґРѕСЃС‚СѓРї.")
+    lines.append("\nИспользуйте кнопки ниже, чтобы ограничить или вернуть доступ.")
     return "\n".join(lines)
 
 
 def format_groups_list(groups: list[dict[str, object]]) -> str:
     if not groups:
-        return "Р“СЂСѓРїРї РїРѕРєР° РЅРµС‚. Р”РѕР±Р°РІСЊС‚Рµ Р±РѕС‚Р° Рё РёСЃРїРѕР»СЊР·СѓР№С‚Рµ /id, С‡С‚РѕР±С‹ РїРѕР»СѓС‡РёС‚СЊ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ."
-    lines = ["рџ’¬ <b>Р“СЂСѓРїРїС‹</b>"]
+        return "Групп пока нет. Добавьте бота и используйте /id, чтобы получить идентификатор."
+    lines = ["💬 <b>Группы</b>"]
     for chat in groups[:20]:
-        status = "вњ…" if chat["is_active"] else "вЏё"
-        title = escape_html(chat["title"] or "Р‘РµР· РЅР°Р·РІР°РЅРёСЏ")
-        lines.append(f"{status} {title} вЂ” ID: <code>{chat['chat_id']}</code>")
-    lines.append("\nР’С‹Р±РµСЂРёС‚Рµ РіСЂСѓРїРїСѓ РЅРёР¶Рµ, С‡С‚РѕР±С‹ РїРµСЂРµРІРµСЃС‚Рё РµС‘ РІ Р°СЂС…РёРІ.")
+        status = "✅" if chat["is_active"] else "⏸"
+        title = escape_html(chat["title"] or "Без названия")
+        lines.append(f"{status} {title} — ID: <code>{chat['chat_id']}</code>")
+    lines.append("\nВыберите группу ниже, чтобы перевести её в архив.")
     return "\n".join(lines)
 
 async def format_account_list(db: Database) -> str:
     accounts = await db.list_pyrogram_accounts()
     if not accounts:
-        return 'РђРєРєР°СѓРЅС‚С‹ РЅРµ РЅР°СЃС‚СЂРѕРµРЅС‹.'
-    rows = ['РЎРѕС…СЂР°РЅС‘РЅРЅС‹Рµ Р°РєРєР°СѓРЅС‚С‹:']
+        return 'Аккаунты не настроены.'
+    rows = ['Сохранённые аккаунты:']
     for item in accounts:
-        status = 'Р°РєС‚РёРІРµРЅ' if item['is_active'] else 'РѕС‚РєР»СЋС‡С‘РЅ'
+        status = 'активен' if item['is_active'] else 'отключён'
         phone = item['phone_number'] or '\u2014'
-        rows.append(f"\u2022 {phone} вЂ” {status}")
+        rows.append(f"\u2022 {phone} — {status}")
     rows.append("")
-    rows.append('РќРѕРІС‹Рµ Р°РєРєР°СѓРЅС‚С‹ РїРѕС‚СЂРµР±СѓСЋС‚ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅС‹Р№ API ID/Hash Рё РІС…РѕРґ С‡РµСЂРµР· РєРѕРґ.')
+    rows.append('Новые аккаунты потребуют действительный API ID/Hash и вход через код.')
     return '\n'.join(rows)
 
 
@@ -295,14 +295,14 @@ async def admin_panel(message: Message, settings: Settings, db: Database) -> Non
         return
     paused = await db.is_paused()
     keyboard = build_admin_keyboard(paused)
-    await message.answer("РџР°РЅРµР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°:", reply_markup=keyboard)
+    await message.answer("Панель администратора:", reply_markup=keyboard)
 
 
 @router.callback_query(F.data.startswith("admin:"))
 async def admin_actions(callback: CallbackQuery, settings: Settings, db: Database, pool: PyrogramAccountPool) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
 
     raw_data = callback.data or ""
@@ -314,7 +314,7 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
     if action == "home":
         paused = await db.is_paused()
         keyboard = build_admin_keyboard(paused)
-        await callback.message.edit_text("РџР°РЅРµР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°:", reply_markup=keyboard)
+        await callback.message.edit_text("Панель администратора:", reply_markup=keyboard)
         await callback.answer()
         return
 
@@ -335,7 +335,7 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         users = await db.top_users()
         text = format_users_list(users)
         keyboard = build_users_keyboard(users) if users else InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+            inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
         )
         await callback.message.answer(text, reply_markup=keyboard)
         await callback.answer()
@@ -348,20 +348,20 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         try:
             await callback.message.edit_reply_markup(new_keyboard)
         except Exception:
-            await callback.message.answer("РџР°РЅРµР»СЊ РѕР±РЅРѕРІР»РµРЅР°.", reply_markup=new_keyboard)
-        await callback.answer("РЎРѕСЃС‚РѕСЏРЅРёРµ РѕР±РЅРѕРІР»РµРЅРѕ")
+            await callback.message.answer("Панель обновлена.", reply_markup=new_keyboard)
+        await callback.answer("Состояние обновлено")
         return
 
     if action == "reputation":
         text = (
-            "в­ђ <b>РЈРїСЂР°РІР»РµРЅРёРµ СЂРµРїСѓС‚Р°С†РёРµР№</b>\n"
-            "РќР°Р¶РјРёС‚Рµ РєРЅРѕРїРєСѓ РЅРёР¶Рµ, С‡С‚РѕР±С‹ РґРѕР±Р°РІРёС‚СЊ СЂСѓС‡РЅСѓСЋ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєСѓ РёР»Рё РїРѕСЃРјРѕС‚СЂРµС‚СЊ РїРѕСЃР»РµРґРЅРёРµ РґРµР№СЃС‚РІРёСЏ."
+            "⭐ <b>Управление репутацией</b>\n"
+            "Нажмите кнопку ниже, чтобы добавить ручную корректировку или посмотреть последние действия."
         )
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="вћ• РќРѕРІР°СЏ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°", callback_data="admin:reputation:new")],
-                [InlineKeyboardButton(text="рџ“„ РџРѕСЃР»РµРґРЅРёРµ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё", callback_data="admin:reputation:history")],
-                [InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")],
+                [InlineKeyboardButton(text="➕ Новая корректировка", callback_data="admin:reputation:new")],
+                [InlineKeyboardButton(text="📄 Последние корректировки", callback_data="admin:reputation:history")],
+                [InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")],
             ]
         )
         await callback.message.answer(text, reply_markup=keyboard)
@@ -377,20 +377,20 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
             return
         sub_action = extra[0]
         if sub_action == "api":
-            prompt = await callback.message.answer("Р’РІРµРґРёС‚Рµ API ID Рё API Hash С‡РµСЂРµР· РїСЂРѕР±РµР»")
+            prompt = await callback.message.answer("Введите API ID и API Hash через пробел")
             pending_api[user.id] = PendingApiConfig(stage="await_credentials", prompt_message_id=prompt.message_id)
-            await callback.answer("РћР¶РёРґР°СЋ РґР°РЅРЅС‹Рµ")
+            await callback.answer("Ожидаю данные")
             return
         if sub_action == "add":
             api_id = await db.get_setting("pyrogram_api_id")
             api_hash = await db.get_setting("pyrogram_api_hash")
             if not api_id or not api_hash:
-                await callback.answer("РЎРЅР°С‡Р°Р»Р° РЅР°СЃС‚СЂРѕР№С‚Рµ API ID/Hash С‡РµСЂРµР· РјРµРЅСЋ", show_alert=True)
-                return            await _reset_pending_account(user.id)
+                await callback.answer("Сначала настройте API ID/Hash через меню", show_alert=True)
+                return
 
-            prompt = await callback.message.answer("РћС‚РїСЂР°РІСЊС‚Рµ РЅРѕРјРµСЂ С‚РµР»РµС„РѕРЅР° РІ С„РѕСЂРјР°С‚Рµ +71234567890")
+            prompt = await callback.message.answer("Отправьте номер телефона в формате +71234567890")
             pending_accounts[user.id] = PendingAccount(stage="await_phone", prompt_message_id=prompt.message_id)
-            await callback.answer("РћР¶РёРґР°СЋ РЅРѕРјРµСЂ")
+            await callback.answer("Ожидаю номер")
             return
         if sub_action == "list":
             text = await format_account_list(db)
@@ -402,8 +402,8 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         return
     if action == "broadcast":
         text = (
-            "рџ“Ј <b>Р Р°СЃСЃС‹Р»РєР°</b>\n"
-            "Р’С‹Р±РµСЂРёС‚Рµ РїРѕР»СѓС‡Р°С‚РµР»РµР№. РџРѕСЃР»Рµ РІС‹Р±РѕСЂР° Р±РѕС‚ РїРѕРїСЂРѕСЃРёС‚ РѕС‚РїСЂР°РІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ РґР»СЏ СЂР°СЃСЃС‹Р»РєРё."
+            "📣 <b>Рассылка</b>\n"
+            "Выберите получателей. После выбора бот попросит отправить сообщение для рассылки."
         )
         await callback.message.answer(text, reply_markup=build_broadcast_scope_keyboard())
         await callback.answer()
@@ -413,7 +413,7 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
         groups = await db.list_groups()
         text = format_groups_list(groups)
         keyboard = build_groups_keyboard(groups) if groups else InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+            inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
         )
         await callback.message.answer(text, reply_markup=keyboard)
         await callback.answer()
@@ -426,7 +426,7 @@ async def admin_actions(callback: CallbackQuery, settings: Settings, db: Databas
 async def refresh_stats(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     stats = await db.fetch_enhanced_statistics()
     text = format_enhanced_statistics(stats)
@@ -445,23 +445,23 @@ async def refresh_stats(callback: CallbackQuery, settings: Settings, db: Databas
             reply_markup=keyboard,
             disable_web_page_preview=True,
         )
-    await callback.answer("РћР±РЅРѕРІР»РµРЅРѕ")
+    await callback.answer("Обновлено")
 
 
 @router.callback_query(F.data.startswith("admin:stats:target:"))
 async def show_stats_target(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     parts = (callback.data or "").split(":")
     if len(parts) != 4:
-        await callback.answer("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ Р·Р°РїСЂРѕСЃ", show_alert=True)
+        await callback.answer("Некорректный запрос", show_alert=True)
         return
     token = parts[3]
     target = stats_target_cache.get(token)
     if not target:
-        await callback.answer("Р”Р°РЅРЅС‹Рµ СѓСЃС‚Р°СЂРµР»Рё. РќР°Р¶РјРёС‚Рµ В«РћР±РЅРѕРІРёС‚СЊВ».", show_alert=True)
+        await callback.answer("Данные устарели. Нажмите «Обновить».", show_alert=True)
         return
     summary = await db.fetch_summary(target)
     text = format_summary(summary)
@@ -472,14 +472,14 @@ async def show_stats_target(callback: CallbackQuery, settings: Settings, db: Dat
         reply_markup=keyboard,
         disable_web_page_preview=True,
     )
-    await callback.answer("Р“РѕС‚РѕРІРѕ")
+    await callback.answer("Готово")
 
 
 @router.callback_query(F.data.startswith("admin:user:"))
 async def handle_user_actions(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     parts = (callback.data or "").split(":")
     if len(parts) != 4:
@@ -487,22 +487,22 @@ async def handle_user_actions(callback: CallbackQuery, settings: Settings, db: D
         return
     action, target_id = parts[2], parts[3]
     if not target_id.isdigit():
-        await callback.answer("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ", show_alert=True)
+        await callback.answer("Некорректный идентификатор", show_alert=True)
         return
     target_user_id = int(target_id)
     if action == "block":
         await db.set_user_blocked(target_user_id, True)
-        await callback.answer("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ")
+        await callback.answer("Пользователь заблокирован")
     elif action == "unblock":
         await db.set_user_blocked(target_user_id, False)
-        await callback.answer("Р”РѕСЃС‚СѓРї РІРѕР·РІСЂР°С‰С‘РЅ")
+        await callback.answer("Доступ возвращён")
     else:
         await callback.answer()
         return
     users = await db.top_users()
     text = format_users_list(users)
     keyboard = build_users_keyboard(users) if users else InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+        inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
     )
     try:
         await callback.message.edit_text(text, reply_markup=keyboard)
@@ -514,22 +514,22 @@ async def handle_user_actions(callback: CallbackQuery, settings: Settings, db: D
 async def refresh_users(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     users = await db.top_users()
     text = format_users_list(users)
     keyboard = build_users_keyboard(users) if users else InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+        inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
     )
     await callback.message.edit_text(text, reply_markup=keyboard)
-    await callback.answer("РћР±РЅРѕРІР»РµРЅРѕ")
+    await callback.answer("Обновлено")
 
 
 @router.callback_query(F.data.startswith("admin:group:"))
 async def handle_group_actions(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     parts = (callback.data or "").split(":")
     if len(parts) != 4:
@@ -537,19 +537,19 @@ async def handle_group_actions(callback: CallbackQuery, settings: Settings, db: 
         return
     action, chat_id_raw = parts[2], parts[3]
     if not chat_id_raw.lstrip("-+").isdigit():
-        await callback.answer("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ", show_alert=True)
+        await callback.answer("Некорректный идентификатор", show_alert=True)
         return
     chat_id = int(chat_id_raw)
     if action == "drop":
         await db.deactivate_group(chat_id)
-        await callback.answer("Р“СЂСѓРїРїР° РїРµСЂРµРІРµРґРµРЅР° РІ Р°СЂС…РёРІ")
+        await callback.answer("Группа переведена в архив")
     else:
         await callback.answer()
         return
     groups = await db.list_groups()
     text = format_groups_list(groups)
     keyboard = build_groups_keyboard(groups) if groups else InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+        inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
     )
     try:
         await callback.message.edit_text(text, reply_markup=keyboard)
@@ -561,42 +561,42 @@ async def handle_group_actions(callback: CallbackQuery, settings: Settings, db: 
 async def refresh_groups(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     groups = await db.list_groups()
     text = format_groups_list(groups)
     keyboard = build_groups_keyboard(groups) if groups else InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="в¬…пёЏ РќР°Р·Р°Рґ", callback_data="admin:home")]]
+        inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="admin:home")]]
     )
     await callback.message.edit_text(text, reply_markup=keyboard)
-    await callback.answer("РћР±РЅРѕРІР»РµРЅРѕ")
+    await callback.answer("Обновлено")
 
 
 @router.callback_query(F.data == "admin:reputation:new")
 async def request_manual_adjustment(callback: CallbackQuery, settings: Settings) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     prompt = await callback.message.answer(
-        "Р’РІРµРґРёС‚Рµ РґР°РЅРЅС‹Рµ РґР»СЏ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё РІ С„РѕСЂРјР°С‚Рµ: <code>username +10 -3 [chat_id]</code>",
+        "Введите данные для корректировки в формате: <code>username +10 -3 [chat_id]</code>",
         parse_mode="HTML",
     )
     pending_reputation[user.id] = PendingReputation(stage="await_data", prompt_message_id=prompt.message_id)
-    await callback.answer("РћР¶РёРґР°СЋ РґР°РЅРЅС‹Рµ")
+    await callback.answer("Ожидаю данные")
 
 
 @router.callback_query(F.data == "admin:reputation:history")
 async def show_manual_adjustments(callback: CallbackQuery, settings: Settings, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     adjustments = await db.recent_manual_adjustments()
     if not adjustments:
-        text = "РџРѕРєР° РЅРµС‚ СЂСѓС‡РЅС‹С… РєРѕСЂСЂРµРєС‚РёСЂРѕРІРѕРє."
+        text = "Пока нет ручных корректировок."
     else:
-        lines = ["рџ“„ <b>РџРѕСЃР»РµРґРЅРёРµ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё</b>"]
+        lines = ["📄 <b>Последние корректировки</b>"]
         for item in adjustments:
             username = item["target"]
             pos = item["positive_delta"]
@@ -604,12 +604,12 @@ async def show_manual_adjustments(callback: CallbackQuery, settings: Settings, d
             chat = item.get("chat_id")
             creator = item.get("created_by")
             created_at = item.get("created_at")
-            parts = [f"рџ‘¤ <code>{escape_html(username)}</code>"]
+            parts = [f"👤 <code>{escape_html(username)}</code>"]
             if chat:
-                parts.append(f"РІ С‡Р°С‚Рµ <code>{chat}</code>")
+                parts.append(f"в чате <code>{chat}</code>")
             parts.append(f"+{pos} / -{neg}")
             if creator:
-                parts.append(f"РѕС‚ <code>{creator}</code>")
+                parts.append(f"от <code>{creator}</code>")
             if created_at:
                 parts.append(created_at)
             lines.append(" ".join(parts))
@@ -622,43 +622,43 @@ async def show_manual_adjustments(callback: CallbackQuery, settings: Settings, d
 async def choose_broadcast_scope(callback: CallbackQuery, settings: Settings) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     scope = (callback.data or "").split(":")[-1]
     if scope not in {"groups", "users"}:
         await callback.answer()
         return
     prompt = await callback.message.answer(
-        "РћС‚РїСЂР°РІСЊС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ, РєРѕС‚РѕСЂРѕРµ РЅСѓР¶РЅРѕ СЂР°Р·РѕСЃР»Р°С‚СЊ. РћРЅРѕ РјРѕР¶РµС‚ СЃРѕРґРµСЂР¶Р°С‚СЊ С‚РµРєСЃС‚, С„РѕС‚Рѕ РёР»Рё РґСЂСѓРіРёРµ РІР»РѕР¶РµРЅРёСЏ.",
+        "Отправьте сообщение, которое нужно разослать. Оно может содержать текст, фото или другие вложения.",
     )
     pending_broadcast[user.id] = PendingBroadcast(
         scope=scope,
         stage="await_content",
         prompt_message_id=prompt.message_id,
     )
-    await callback.answer("Р–РґСѓ СЃРѕРѕР±С‰РµРЅРёРµ")
+    await callback.answer("Жду сообщение")
 
 
 @router.callback_query(F.data.startswith("admin:broadcast:add_button:"))
 async def broadcast_button_choice(callback: CallbackQuery, settings: Settings, bot: Bot, db: Database) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     state = pending_broadcast.get(user.id)
     if not state:
-        await callback.answer("РќРµС‚ Р°РєС‚РёРІРЅРѕР№ СЂР°СЃСЃС‹Р»РєРё", show_alert=True)
+        await callback.answer("Нет активной рассылки", show_alert=True)
         return
     choice = (callback.data or "").split(":")[-1]
     if choice == "yes":
         state.stage = "await_button_text"
-        prompt = await callback.message.answer("Р’РІРµРґРёС‚Рµ С‚РµРєСЃС‚ РєРЅРѕРїРєРё")
+        prompt = await callback.message.answer("Введите текст кнопки")
         state.prompt_message_id = prompt.message_id
-        await callback.answer("Р–РґСѓ С‚РµРєСЃС‚ РєРЅРѕРїРєРё")
+        await callback.answer("Жду текст кнопки")
         return
     if choice == "no":
         await perform_broadcast(callback.message, bot, db, user.id, state)
-        await callback.answer("Р Р°СЃСЃС‹Р»РєР° РѕС‚РїСЂР°РІР»РµРЅР°")
+        await callback.answer("Рассылка отправлена")
         return
     await callback.answer()
 
@@ -667,17 +667,17 @@ async def broadcast_button_choice(callback: CallbackQuery, settings: Settings, b
 async def cancel_broadcast(callback: CallbackQuery, settings: Settings) -> None:
     user = callback.from_user
     if not user or not is_admin(user.id, settings):
-        await callback.answer("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂР°РІ", show_alert=True)
+        await callback.answer("Недостаточно прав", show_alert=True)
         return
     if user.id in pending_broadcast:
         pending_broadcast.pop(user.id)
-    await callback.answer("Р Р°СЃСЃС‹Р»РєР° РѕС‚РјРµРЅРµРЅР°")
-    await callback.message.answer("Р Р°СЃСЃС‹Р»РєР° РѕС‚РјРµРЅРµРЅР°.")
+    await callback.answer("Рассылка отменена")
+    await callback.message.answer("Рассылка отменена.")
 
 
 async def perform_broadcast(message: Message, bot: Bot, db: Database, admin_id: int, state: PendingBroadcast) -> None:
     if state.content_chat_id is None or state.content_message_id is None:
-        await message.answer("РќРµС‚ СЃРѕРѕР±С‰РµРЅРёСЏ РґР»СЏ СЂР°СЃСЃС‹Р»РєРё.")
+        await message.answer("Нет сообщения для рассылки.")
         pending_broadcast.pop(admin_id, None)
         return
     if state.scope == "groups":
@@ -702,7 +702,7 @@ async def perform_broadcast(message: Message, bot: Bot, db: Database, admin_id: 
         except Exception:
             continue
     pending_broadcast.pop(admin_id, None)
-    await message.answer(f"Р Р°СЃСЃС‹Р»РєР° РѕС‚РїСЂР°РІР»РµРЅР° {sent} РїРѕР»СѓС‡Р°С‚РµР»СЏРј.")
+    await message.answer(f"Рассылка отправлена {sent} получателям.")
 
 
 @router.message()
