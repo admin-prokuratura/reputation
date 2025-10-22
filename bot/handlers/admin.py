@@ -63,10 +63,47 @@ class PendingAccount:
     phone_number: Optional[str] = None
     phone_code_hash: Optional[str] = None
     client: Optional[Client] = None
+    code_buffer: str = ""
 
 
 pending_api: Dict[int, PendingApiConfig] = {}
 pending_accounts: Dict[int, PendingAccount] = {}
+
+
+def _code_prompt_text(code: str) -> str:
+    display = code or "—"
+    return (
+        "Введите код подтверждения, используя кнопки ниже или отправьте его сообщением.\n\n"
+        f"Текущий код: <code>{display}</code>"
+    )
+
+
+def _build_code_input_keyboard(code: str) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(text="1", callback_data="admin:accounts:code:add:1"),
+            InlineKeyboardButton(text="2", callback_data="admin:accounts:code:add:2"),
+            InlineKeyboardButton(text="3", callback_data="admin:accounts:code:add:3"),
+        ],
+        [
+            InlineKeyboardButton(text="4", callback_data="admin:accounts:code:add:4"),
+            InlineKeyboardButton(text="5", callback_data="admin:accounts:code:add:5"),
+            InlineKeyboardButton(text="6", callback_data="admin:accounts:code:add:6"),
+        ],
+        [
+            InlineKeyboardButton(text="7", callback_data="admin:accounts:code:add:7"),
+            InlineKeyboardButton(text="8", callback_data="admin:accounts:code:add:8"),
+            InlineKeyboardButton(text="9", callback_data="admin:accounts:code:add:9"),
+        ],
+    ]
+    control_row = [
+        InlineKeyboardButton(text="⬅️", callback_data="admin:accounts:code:back"),
+        InlineKeyboardButton(text="0", callback_data="admin:accounts:code:add:0"),
+        InlineKeyboardButton(text="✅", callback_data="admin:accounts:code:submit"),
+    ]
+    rows.append(control_row)
+    rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data="admin:accounts:code:cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def _reset_pending_account(user_id: int) -> None:
@@ -386,6 +423,8 @@ async def admin_actions(
             pending_api[user.id] = PendingApiConfig(stage="await_credentials", prompt_message_id=prompt.message_id)
             await callback.answer("Ожидаю данные")
             return
+        if sub_action == "code":
+            raise SkipHandler
         if sub_action == "add":
             api_id = await db.get_setting("pyrogram_api_id")
             api_hash = await db.get_setting("pyrogram_api_hash")
@@ -426,6 +465,151 @@ async def admin_actions(
 
     await callback.answer()
 
+
+@router.callback_query(F.data.startswith("admin:accounts:code:"))
+async def handle_account_code_inputs(
+    callback: CallbackQuery,
+    settings: Settings,
+    db: Database,
+    account_pool: PyrogramAccountPool,
+) -> None:
+    user = callback.from_user
+    if not user or not is_admin(user.id, settings):
+        await callback.answer("Недостаточно прав", show_alert=True)
+        return
+    message = callback.message
+    if not message:
+        await callback.answer()
+        return
+
+    state = pending_accounts.get(user.id)
+    if not state or state.stage != "await_code":
+        await callback.answer("Запрос неактуален", show_alert=True)
+        return
+
+    state.prompt_message_id = message.message_id
+    data = callback.data or ""
+    parts = data.split(":")
+    action = parts[3] if len(parts) > 3 else ""
+
+    if action == "add":
+        digit = parts[4] if len(parts) > 4 else ""
+        if not digit.isdigit():
+            await callback.answer()
+            return
+        if len(state.code_buffer) >= 6:
+            await callback.answer("Код не может быть длиннее 6 цифр.", show_alert=True)
+            return
+        state.code_buffer += digit
+        try:
+            await message.edit_text(
+                _code_prompt_text(state.code_buffer),
+                reply_markup=_build_code_input_keyboard(state.code_buffer),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
+    if action == "back":
+        state.code_buffer = state.code_buffer[:-1]
+        try:
+            await message.edit_text(
+                _code_prompt_text(state.code_buffer),
+                reply_markup=_build_code_input_keyboard(state.code_buffer),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        await callback.answer()
+        return
+
+    if action == "cancel":
+        await _reset_pending_account(user.id)
+        try:
+            await message.edit_text("Ввод кода отменён.", reply_markup=None)
+        except Exception:
+            pass
+        await callback.answer("Отменено")
+        return
+
+    if action == "submit":
+        code = state.code_buffer
+        if not code:
+            await callback.answer("Введите код", show_alert=True)
+            return
+        client = state.client
+        if client is None:
+            await callback.message.answer("Session lost. Start over.")
+            await _reset_pending_account(user.id)
+            try:
+                await message.edit_text("Сессия недоступна.", reply_markup=None)
+            except Exception:
+                pass
+            await callback.answer()
+            return
+        try:
+            await client.sign_in(
+                state.phone_number,
+                code,
+                phone_code_hash=state.phone_code_hash,
+            )
+        except errors.FloodWait as exc:
+            await callback.message.answer(f"Too many attempts. Try again in {exc.value} seconds.")
+            await callback.answer()
+            return
+        except errors.SessionPasswordNeeded:
+            state.stage = "await_password"
+            state.code_buffer = ""
+            try:
+                await message.edit_text(
+                    _code_prompt_text(state.code_buffer),
+                    reply_markup=None,
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            await callback.message.answer("This account has a password. Send the password now.")
+            await callback.answer()
+            return
+        except errors.PhoneCodeInvalid:
+            state.code_buffer = ""
+            try:
+                await message.edit_text(
+                    _code_prompt_text(state.code_buffer),
+                    reply_markup=_build_code_input_keyboard(state.code_buffer),
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            await callback.message.answer("Invalid code. Try again.")
+            await callback.answer()
+            return
+        except Exception:
+            await callback.message.answer("Sign-in failed. Try again later.")
+            await _reset_pending_account(user.id)
+            try:
+                await message.edit_text("Ошибка авторизации.", reply_markup=None)
+            except Exception:
+                pass
+            await callback.answer()
+            return
+        await client.disconnect()
+        session_name = state.session_name or f"account_{int(time.time())}"
+        phone_number = state.phone_number
+        pending_accounts.pop(user.id, None)
+        await db.add_pyrogram_account(session_name, phone_number)
+        await account_pool.refresh()
+        try:
+            await message.edit_text("Код принят.", reply_markup=None)
+        except Exception:
+            pass
+        await callback.message.answer("Account added.")
+        await callback.answer("Готово")
+        return
+
+    await callback.answer()
 
 @router.callback_query(F.data == "admin:stats:refresh")
 async def refresh_stats(callback: CallbackQuery, settings: Settings, db: Database) -> None:
@@ -797,7 +981,12 @@ async def handle_admin_inputs(
             account_state.phone_code_hash = sent.phone_code_hash
             account_state.session_name = session_name
             account_state.stage = "await_code"
-            await message.reply("Enter the confirmation code from Telegram.")
+            account_state.code_buffer = ""
+            prompt = await message.reply(
+                _code_prompt_text(account_state.code_buffer),
+                reply_markup=_build_code_input_keyboard(account_state.code_buffer),
+            )
+            account_state.prompt_message_id = prompt.message_id
             return
         if account_state.stage == "await_code":
             code = (message.text or "").replace(" ", "")
@@ -820,9 +1009,35 @@ async def handle_admin_inputs(
                 return
             except errors.SessionPasswordNeeded:
                 account_state.stage = "await_password"
+                account_state.code_buffer = ""
+                prompt_id = account_state.prompt_message_id
+                if prompt_id:
+                    try:
+                        await bot.edit_message_text(
+                            _code_prompt_text(account_state.code_buffer),
+                            message.chat.id,
+                            prompt_id,
+                            reply_markup=None,
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
                 await message.reply("This account has a password. Send the password now.")
                 return
             except errors.PhoneCodeInvalid:
+                account_state.code_buffer = ""
+                prompt_id = account_state.prompt_message_id
+                if prompt_id:
+                    try:
+                        await bot.edit_message_text(
+                            _code_prompt_text(account_state.code_buffer),
+                            message.chat.id,
+                            prompt_id,
+                            reply_markup=_build_code_input_keyboard(account_state.code_buffer),
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
                 await message.reply("Invalid code. Try again.")
                 return
             except Exception:
@@ -835,6 +1050,17 @@ async def handle_admin_inputs(
             pending_accounts.pop(user_id, None)
             await db.add_pyrogram_account(session_name, phone_number)
             await account_pool.refresh()
+            prompt_id = account_state.prompt_message_id
+            if prompt_id:
+                try:
+                    await bot.edit_message_text(
+                        "Код принят.",
+                        message.chat.id,
+                        prompt_id,
+                        reply_markup=None,
+                    )
+                except Exception:
+                    pass
             await message.reply("Account added.")
             return
         if account_state.stage == "await_password":
