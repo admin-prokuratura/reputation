@@ -49,7 +49,7 @@ async def capture_reputation(message: Message, db: Database) -> None:
         )
 
 
-@router.message(Command(commands=["r", "rep"]))
+@router.message(Command(commands=["r", "rep"], ignore_mention=True))
 async def rep_command(message: Message, db: Database, settings: Settings, fetcher: ReputationFetcher) -> None:
     if not message.from_user:
         return

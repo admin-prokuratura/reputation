@@ -38,41 +38,33 @@ async def on_start(message: Message, settings: Settings) -> None:
     await message.answer(text, reply_markup=PRIVATE_MENU)
 
 
-@router.message(F.text == MENU_INFO_BUTTON)
-async def show_information(message: Message, db: Database) -> None:
-    if message.chat.type != "private":
-        return
-    groups = await db.list_groups()
+def _information_text(groups: list[dict]) -> str:
     active = [item for item in groups if item.get("is_active")]
     if not active:
-        text = (
+        return (
             "No active groups are registered yet. Invite the bot to a group and run /id so the "
             "administrators can approve it."
         )
-    else:
-        lines = ["<b>Active reputation groups</b>"]
-        for group in active:
-            title = group.get("title") or ""
-            username = group.get("username")
-            identifier = f"ID {group['chat_id']}"
-            if title and username:
-                display = f"{escape(title)} (@{escape(username)})"
-            elif title:
-                display = escape(title)
-            elif username:
-                display = f"@{escape(username)}"
-            else:
-                display = identifier
-            lines.append(f"• {display}")
-        text = "\n".join(lines)
-    await message.answer(text, reply_markup=PRIVATE_MENU)
+
+    lines = ["<b>Active reputation groups</b>"]
+    for group in active:
+        title = group.get("title") or ""
+        username = group.get("username")
+        identifier = f"ID {group['chat_id']}"
+        if title and username:
+            display = f"{escape(title)} (@{escape(username)})"
+        elif title:
+            display = escape(title)
+        elif username:
+            display = f"@{escape(username)}"
+        else:
+            display = identifier
+        lines.append(f"• {display}")
+    return "\n".join(lines)
 
 
-@router.message(F.text == MENU_INSTRUCTION_BUTTON)
-async def show_instruction(message: Message) -> None:
-    if message.chat.type != "private":
-        return
-    text = "\n".join(
+def _instruction_text() -> str:
+    return "\n".join(
         [
             "<b>How to request a reputation summary</b>",
             "",
@@ -81,7 +73,24 @@ async def show_instruction(message: Message) -> None:
             "3. Inline mode works everywhere: type <code>@your_bot rep username</code> and choose a result.",
         ]
     )
-    await message.answer(text, reply_markup=PRIVATE_MENU)
+
+
+def _reply_markup_for(message: Message) -> ReplyKeyboardMarkup | None:
+    return PRIVATE_MENU if message.chat.type == "private" else None
+
+
+@router.message(Command(commands=["info", "information"], ignore_mention=True))
+@router.message(F.text == MENU_INFO_BUTTON)
+async def show_information(message: Message, db: Database) -> None:
+    groups = await db.list_groups()
+    text = _information_text(groups)
+    await message.answer(text, reply_markup=_reply_markup_for(message))
+
+
+@router.message(Command(commands=["instruction", "instructions", "help"], ignore_mention=True))
+@router.message(F.text == MENU_INSTRUCTION_BUTTON)
+async def show_instruction(message: Message) -> None:
+    await message.answer(_instruction_text(), reply_markup=_reply_markup_for(message))
 
 
 @router.message(Command("id"))
