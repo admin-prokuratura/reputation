@@ -9,7 +9,8 @@ def parse_rep_arguments(text: str) -> Tuple[Optional[str], Optional[str]]:
     parts = shlex.split(text)
     if not parts:
         return None, None
-    if parts[0].lower() == "/rep":
+    first = parts[0].lower()
+    if first in {"/rep", "/r"}:
         parts = parts[1:]
     if not parts:
         return None, None
@@ -18,7 +19,7 @@ def parse_rep_arguments(text: str) -> Tuple[Optional[str], Optional[str]]:
     return target, chat_title
 
 
-_INLINE_PREFIX = re.compile(r"^(?:[+\-/]?)rep\b", re.IGNORECASE)
+_INLINE_PREFIX = re.compile(r"^(?:[+\-/]?)(?:rep|r)\b", re.IGNORECASE)
 
 
 def parse_inline_query(query: str) -> Tuple[Optional[str], Optional[str]]:

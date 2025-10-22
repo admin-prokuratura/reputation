@@ -5,13 +5,16 @@ from typing import Optional
 
 from aiogram import F, Router
 from aiogram.filters import Command
-from aiogram.types import (InlineQuery, InlineQueryResultArticle, InputTextMessageContent,
-                           Message)
+from aiogram.types import (
+    InlineQuery,
+    InlineQueryResultArticle,
+    InputTextMessageContent,
+    Message,
+)
 
 from ..config import Settings
 from ..database import Database
-from ..services.formatters import (build_detail_keyboard, build_rep_command_keyboard,
-                                   escape_html, format_summary)
+from ..services.formatters import build_detail_keyboard, escape_html, format_summary
 from ..services.reputation_detector import build_entries_from_message
 from ..services.models import ReputationSummary
 from ..utils.parsing import parse_inline_query, parse_rep_arguments
@@ -45,16 +48,11 @@ async def capture_reputation(message: Message, db: Database) -> None:
         )
 
 
-@router.message(Command("rep"))
+@router.message(Command(commands=["r", "rep"]))
 async def rep_command(message: Message, db: Database, settings: Settings) -> None:
     if not message.from_user:
         return
 
-    if message.chat.type == "private" and message.from_user.id not in settings.admin_ids:
-        await message.answer(
-            "ℹ️ Поиск репутации доступен только в чатах. Добавьте бота в группу и используйте команду там."
-        )
-        return
     await db.ensure_user(
         message.from_user.id,
         message.from_user.username,
@@ -69,15 +67,40 @@ async def rep_command(message: Message, db: Database, settings: Settings) -> Non
     target, chat_query = parse_rep_arguments(text)
     if not target:
         await message.reply(
-            "Использование: <code>/rep username \"Название чата\"</code> или просто <code>/rep username</code>."
+            "Использование: <code>/r @username</code> или <code>/r @username \"Название чата\"</code>."
         )
         return
 
-    keyboard = build_rep_command_keyboard(target.lstrip("@"), chat_query)
+    target_clean = target.lstrip("@")
+    chat_id: Optional[int] = None
+    chat_title: Optional[str] = None
+    note_prefix = ""
+
+    if chat_query:
+        chat_id, chat_title = await resolve_chat_id(db, chat_query)
+        if chat_id is None:
+            note_prefix = f"Чат «{escape_html(chat_query)}» не найден. \n\n"
+    elif message.chat.type in {"group", "supergroup"}:
+        chat_id = message.chat.id
+        chat_title = message.chat.title
+
+    summary = await db.fetch_summary(target_clean, chat_id)
+    if chat_title and not summary.chat_title:
+        summary.chat_title = chat_title
+
+    message_text = format_summary(summary)
+    if note_prefix:
+        message_text = note_prefix + message_text
+
+    keyboard = build_detail_keyboard(summary.target, summary.chat_id)
     await message.reply(
-        "Выберите, какую репутацию нужно показать. Можно также открыть inline-режим и набрать запрос вручную.",
+        message_text,
         reply_markup=keyboard,
+        disable_web_page_preview=True,
     )
+
+    await db.increment_user_requests(message.from_user.id)
+    await db.log_request(message.from_user.id, target_clean, chat_id)
 
 
 def build_inline_article(summary: ReputationSummary) -> InlineQueryResultArticle:
